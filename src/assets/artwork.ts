@@ -1,28 +1,28 @@
 // Production Graphic Assets for MIRROR MASK
-import hauntedFrameUrl from './processed/haunted_gothic_frame.png';
-import crackedOverlayUrl from './processed/cracked_mirror_overlay.png';
-import baroqueOverlayUrl from './processed/baroque_overlay.png';
-import brassPlaqueUrl from './processed/brass_ui_plaque.png';
+import hauntedFrameUrl from './processed/haunted_gothic_frame.webp';
+import crackedOverlayUrl from './processed/cracked_mirror_overlay.webp';
+import baroqueOverlayUrl from './processed/baroque_overlay.webp';
+import brassPlaqueUrl from './processed/brass_ui_plaque.webp';
 
 // Manifestation Masks
-import cursedStoneMaskUrl from './processed/cursed_stone_mask.png';
-import veiledOneOverlayUrl from './processed/veiled_one_overlay.png';
-import demonGrinMaskUrl from './processed/demon_grin_mask.png';
-import passengerWraithUrl from './processed/passenger_wraith.png';
+import cursedStoneMaskUrl from './processed/cursed_stone_mask.webp';
+import mourningVeilUrl from './processed/mourning_veil.webp';
+import grinningMouthUrl from './processed/grinning_mouth.webp';
+import shadowPassengerUrl from './processed/shadow_passenger.webp';
 
 // Dormant Talisman Sigils (0 to 4)
-import talisman0 from './processed/talisman_sigil_0.png';
-import talisman1 from './processed/talisman_sigil_1.png';
-import talisman2 from './processed/talisman_sigil_2.png';
-import talisman3 from './processed/talisman_sigil_3.png';
-import talisman4 from './processed/talisman_sigil_4.png';
+import talisman0 from './processed/talisman_sigil_0.webp';
+import talisman1 from './processed/talisman_sigil_1.webp';
+import talisman2 from './processed/talisman_sigil_2.webp';
+import talisman3 from './processed/talisman_sigil_3.webp';
+import talisman4 from './processed/talisman_sigil_4.webp';
 
 // Awakened Celestial Sigils (0 to 4)
-import celestial0 from './processed/celestial_sigil_0.png';
-import celestial1 from './processed/celestial_sigil_1.png';
-import celestial2 from './processed/celestial_sigil_2.png';
-import celestial3 from './processed/celestial_sigil_3.png';
-import celestial4 from './processed/celestial_sigil_4.png';
+import celestial0 from './processed/celestial_sigil_0.webp';
+import celestial1 from './processed/celestial_sigil_1.webp';
+import celestial2 from './processed/celestial_sigil_2.webp';
+import celestial3 from './processed/celestial_sigil_3.webp';
+import celestial4 from './processed/celestial_sigil_4.webp';
 
 export const ARTWORK = {
   hauntedFrame: hauntedFrameUrl,
@@ -30,9 +30,9 @@ export const ARTWORK = {
   baroqueOverlay: baroqueOverlayUrl,
   brassPlaque: brassPlaqueUrl,
   cursedStoneMask: cursedStoneMaskUrl,
-  veiledOneOverlay: veiledOneOverlayUrl,
-  demonGrinMask: demonGrinMaskUrl,
-  passengerWraith: passengerWraithUrl,
+  mourningVeil: mourningVeilUrl,
+  grinningMouth: grinningMouthUrl,
+  shadowPassenger: shadowPassengerUrl,
   talismanSigils: [talisman0, talisman1, talisman2, talisman3, talisman4],
   celestialSigils: [celestial0, celestial1, celestial2, celestial3, celestial4],
 };
@@ -62,9 +62,9 @@ export function preloadAllArtwork() {
     ARTWORK.baroqueOverlay,
     ARTWORK.brassPlaque,
     ARTWORK.cursedStoneMask,
-    ARTWORK.veiledOneOverlay,
-    ARTWORK.demonGrinMask,
-    ARTWORK.passengerWraith,
+    ARTWORK.mourningVeil,
+    ARTWORK.grinningMouth,
+    ARTWORK.shadowPassenger,
     ...ARTWORK.talismanSigils,
     ...ARTWORK.celestialSigils,
   ];

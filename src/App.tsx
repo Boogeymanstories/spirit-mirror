@@ -15,7 +15,7 @@ export default function App() {
   // Manifestation state
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [discovered, setDiscovered] = useState<Set<ManifestationId>>(
-    new Set<ManifestationId>(['hollow'])
+    new Set<ManifestationId>()
   );
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 

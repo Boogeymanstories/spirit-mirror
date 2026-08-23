@@ -35,6 +35,9 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const paranormalSchedulerRef = useRef<ParanormalScheduler | null>(null);
+  const faceDetectedRef = useRef(false);
+  const lastFaceProcessTimeRef = useRef(0);
+  const lastMetricsRef = useRef<FaceMetrics | null>(null);
 
   // Offscreen canvas frame buffer for Doppelgänger temporal reflection anomaly
   const delayedBufferRef = useRef<HTMLCanvasElement[]>([]);
@@ -82,6 +85,10 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
   // Main Render and Face Tracking Loop
   useEffect(() => {
     if (status !== 'active') {
+      faceDetectedRef.current = false;
+      lastFaceProcessTimeRef.current = 0;
+      lastMetricsRef.current = null;
+      setFaceDetected(false);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
@@ -91,12 +98,15 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
 
     let isSubscribed = true;
 
-    // Initialize rolling delayed canvas ring buffer (16 frames for richer temporal anomalies)
+    // Initialize rolling delayed canvas ring buffer for Doppelgänger temporal anomalies.
+    // Match the render canvas resolution so delayed reflections stay sharp and correctly scaled.
     if (delayedBufferRef.current.length === 0) {
+      const bufferWidth = canvasRef.current?.width || 480;
+      const bufferHeight = canvasRef.current?.height || 720;
       for (let i = 0; i < 16; i++) {
         const offCanvas = document.createElement('canvas');
-        offCanvas.width = 320;
-        offCanvas.height = 480;
+        offCanvas.width = bufferWidth;
+        offCanvas.height = bufferHeight;
         delayedBufferRef.current.push(offCanvas);
       }
     }
@@ -119,11 +129,18 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
           const width = canvas.width;
           const height = canvas.height;
 
-          // 1. Process Face Landmarker (mirrored coordinates)
-          let metrics: FaceMetrics | null = null;
-          if (landmarkerRef.current) {
+          // 1. Process Face Landmarker at ~30fps. Rendering may run faster, but running
+          // MediaPipe every animation frame wastes mobile CPU and can make tracking less stable.
+          let metrics: FaceMetrics | null = lastMetricsRef.current;
+          if (landmarkerRef.current && time - lastFaceProcessTimeRef.current >= 32) {
             metrics = processVideoFrame(landmarkerRef.current, video, time);
-            setFaceDetected(metrics.detected);
+            lastMetricsRef.current = metrics;
+            lastFaceProcessTimeRef.current = time;
+
+            if (faceDetectedRef.current !== metrics.detected) {
+              faceDetectedRef.current = metrics.detected;
+              setFaceDetected(metrics.detected);
+            }
           }
 
           // 2. Draw Mirrored Live Video Feed to Canvas (Crisp & Natural)
@@ -219,8 +236,8 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
       {/* Main Canvas rendering mirror & supernatural overlays */}
       <canvas
         ref={canvasRef}
-        width={320}
-        height={480}
+        width={480}
+        height={720}
         className={`w-full h-full object-cover transition-opacity duration-700 ${
           status === 'active' ? 'opacity-100' : 'opacity-0'
         } ${isTransitioning && !reducedMotion ? 'summoning-transition' : ''}`}
