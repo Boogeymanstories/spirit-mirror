@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-cinzel-dec: 'Cinzel Decorative', serif;
+    --font-cinzel: 'Cinzel', serif;
+    --font-fell: 'IM Fell English', serif;
+    --font-spectral: 'Spectral', serif;
+  }
+
+  body {
+    background-color: #080706;
+    color: #c9bea3;
+    font-family: var(--font-spectral);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Antique & Occult Typography */
+.font-cinzel-dec {
+  font-family: var(--font-cinzel-dec);
+}
+
+.font-cinzel {
+  font-family: var(--font-cinzel);
+}
+
+.font-fell {
+  font-family: var(--font-fell);
+}
+
+.font-spectral {
+  font-family: var(--font-spectral);
+}
+
+/* Antique Engraved Lettering & Metals */
+.engraved-text {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9), 0 -1px 0 rgba(255, 230, 180, 0.15);
+}
+
+.engraved-dark {
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08), 0 -1px 1px rgba(0, 0, 0, 0.95);
+}
+
+.occult-glow {
+  text-shadow: 0 0 8px rgba(170, 220, 200, 0.45), 0 0 16px rgba(100, 180, 160, 0.2);
+}
+
+.gold-glow {
+  text-shadow: 0 0 8px rgba(212, 175, 55, 0.4), 0 0 16px rgba(180, 140, 30, 0.2);
+}
+
+/* Glass & Frame Shadows */
+.recessed-glass {
+  box-shadow: inset 0 0 35px 15px rgba(0, 0, 0, 0.95),
+              inset 0 0 8px 2px rgba(10, 15, 12, 0.8),
+              0 20px 40px -10px rgba(0, 0, 0, 0.9);
+}
+
+.mirror-bevel {
+  box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.12),
+              inset -1px -1px 3px rgba(0, 0, 0, 0.85);
+}
+
+.cast-iron-border {
+  border: 1px solid #1a1612;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04),
+              inset 0 1px 2px rgba(0, 0, 0, 0.9),
+              inset 0 0 12px rgba(0, 0, 0, 0.8);
+}
+
+/* Atmospheric Animations */
+@keyframes ethereal-drift {
+  0%, 100% {
+    opacity: 0.18;
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    opacity: 0.28;
+    transform: scale(1.02) translateY(-2px);
+  }
+}
+
+@keyframes glass-shimmer {
+  0%, 100% {
+    opacity: 0.12;
+  }
+  30% {
+    opacity: 0.18;
+  }
+  70% {
+    opacity: 0.10;
+  }
+}
+
+@keyframes glyph-pulse {
+  0%, 100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 3px rgba(180, 230, 210, 0.3));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 7px rgba(180, 230, 210, 0.6));
+  }
+}
+
+@keyframes summoning-shake {
+  0% { transform: translate(0, 0) scale(1); filter: brightness(1) contrast(1); }
+  20% { transform: translate(-2px, 1px) scale(0.99); filter: brightness(1.4) contrast(1.3) hue-rotate(40deg); }
+  40% { transform: translate(2px, -2px) scale(1.01); filter: brightness(0.6) contrast(1.6) invert(0.2); }
+  60% { transform: translate(-1px, 2px) scale(0.995); filter: brightness(1.2) contrast(1.1); }
+  80% { transform: translate(1px, -1px) scale(1.005); filter: brightness(0.9); }
+  100% { transform: translate(0, 0) scale(1); filter: brightness(1) contrast(1); }
+}
+
+.animate-ethereal {
+  animation: ethereal-drift 8s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: glass-shimmer 6s ease-in-out infinite;
+}
+
+.animate-glyph {
+  animation: glyph-pulse 3s ease-in-out infinite;
+}
+
+.summoning-transition {
+  animation: summoning-shake 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ethereal,
+  .animate-shimmer,
+  .animate-glyph,
+  .summoning-transition {
+    animation: none !important;
+    transition: none !important;
+  }
+}
