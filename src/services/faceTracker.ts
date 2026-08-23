@@ -119,32 +119,33 @@ export function processVideoFrame(
       z: pt.z,
     }));
 
-    // Extract key landmarks (indices in MediaPipe Face Mesh)
-    // Note: because x is mirrored (1 - x), left and right camera coordinates are mirrored
-    const ptLeftEyeOuter = landmarks[33] || landmarks[130];
-    const ptLeftEyeInner = landmarks[133];
-    const ptRightEyeOuter = landmarks[263] || landmarks[359];
-    const ptRightEyeInner = landmarks[362];
+    // In mirrored video coordinates (x = 1.0 - raw.x):
+    // - Screen Left (viewer's left, smaller x) corresponds to the person's left side (landmarks 263, 362, 454, 291)
+    // - Screen Right (viewer's right, larger x) corresponds to the person's right side (landmarks 33, 133, 234, 61)
+    const ptScreenLeftEyeOuter = landmarks[263] || landmarks[359];
+    const ptScreenLeftEyeInner = landmarks[362];
+    const ptScreenRightEyeOuter = landmarks[33] || landmarks[130];
+    const ptScreenRightEyeInner = landmarks[133];
 
     const leftEyeRaw: Point2D = {
-      x: (ptLeftEyeOuter.x + ptLeftEyeInner.x) / 2,
-      y: (ptLeftEyeOuter.y + ptLeftEyeInner.y) / 2,
+      x: (ptScreenLeftEyeOuter.x + ptScreenLeftEyeInner.x) / 2,
+      y: (ptScreenLeftEyeOuter.y + ptScreenLeftEyeInner.y) / 2,
     };
 
     const rightEyeRaw: Point2D = {
-      x: (ptRightEyeOuter.x + ptRightEyeInner.x) / 2,
-      y: (ptRightEyeOuter.y + ptRightEyeInner.y) / 2,
+      x: (ptScreenRightEyeOuter.x + ptScreenRightEyeInner.x) / 2,
+      y: (ptScreenRightEyeOuter.y + ptScreenRightEyeInner.y) / 2,
     };
 
     const noseRaw: Point2D = landmarks[4] || landmarks[1];
     const foreheadRaw: Point2D = landmarks[10] || landmarks[151];
     const chinRaw: Point2D = landmarks[152] || landmarks[199];
-    const mouthLeftRaw: Point2D = landmarks[61];
-    const mouthRightRaw: Point2D = landmarks[291];
+    const mouthLeftRaw: Point2D = landmarks[291]; // screen left
+    const mouthRightRaw: Point2D = landmarks[61];  // screen right
     const mouthTopRaw: Point2D = landmarks[13] || landmarks[0];
     const mouthBottomRaw: Point2D = landmarks[14] || landmarks[17];
-    const leftCheekRaw: Point2D = landmarks[234];
-    const rightCheekRaw: Point2D = landmarks[454];
+    const leftCheekRaw: Point2D = landmarks[454];  // screen left
+    const rightCheekRaw: Point2D = landmarks[234]; // screen right
 
     const centerRaw: Point2D = {
       x: (foreheadRaw.x + chinRaw.x + noseRaw.x) / 3,
@@ -152,7 +153,7 @@ export function processVideoFrame(
     };
 
     // Calculate rotation angles
-    // Roll (Z rotation): Angle between eyes
+    // Roll (Z rotation): Angle from screen left eye to screen right eye (0 rad when upright and level)
     const eyeDx = rightEyeRaw.x - leftEyeRaw.x;
     const eyeDy = rightEyeRaw.y - leftEyeRaw.y;
     const rotationZRaw = Math.atan2(eyeDy, eyeDx);
@@ -163,7 +164,7 @@ export function processVideoFrame(
 
     // Pitch (X rotation): Distance from nose to eye line vs nose to mouth
     const eyeMidY = (leftEyeRaw.y + rightEyeRaw.y) / 2;
-    const rotationXRaw = (noseRaw.y - eyeMidY - 0.12) * 4.0;
+    const rotationXRaw = (noseRaw.y - eyeMidY - 0.08) * 4.0;
 
     // Scale calculation based on eye distance and facial height
     const eyeDist = Math.hypot(eyeDx, eyeDy);

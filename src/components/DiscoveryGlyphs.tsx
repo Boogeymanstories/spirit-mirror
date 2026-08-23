@@ -1,6 +1,7 @@
 import React from 'react';
 import { MANIFESTATIONS, MANIFESTATION_ORDER } from '../data/manifestations';
 import { ManifestationId } from '../types';
+import { ARTWORK } from '../assets/artwork';
 
 interface DiscoveryGlyphsProps {
   discovered: Set<ManifestationId>;
@@ -17,15 +18,18 @@ export const DiscoveryGlyphs: React.FC<DiscoveryGlyphsProps> = ({
 }) => {
   return (
     <div
-      className="w-full px-3 py-2 border-t border-[#261f18] bg-[#0c0a08]/90 flex flex-col items-center gap-1.5"
+      className="w-full pt-2 pb-0.5 flex flex-col items-center justify-center z-20"
       role="region"
       aria-label="Discovered Manifestation Sigils"
     >
-      <div className="flex items-center justify-center gap-2.5 sm:gap-3 w-full">
-        {MANIFESTATION_ORDER.map((id) => {
+      {/* Medallion Sockets Row */}
+      <div className="flex items-center justify-center gap-2 sm:gap-2.5 w-full">
+        {MANIFESTATION_ORDER.map((id, index) => {
           const item = MANIFESTATIONS[id];
           const isDiscovered = discovered.has(id);
           const isActive = isAwakened && currentId === id;
+          const talismanImg = ARTWORK.talismanSigils[index];
+          const celestialImg = ARTWORK.celestialSigils[index];
 
           return (
             <button
@@ -39,55 +43,43 @@ export const DiscoveryGlyphs: React.FC<DiscoveryGlyphsProps> = ({
               }}
               title={
                 isDiscovered
-                  ? `${item.name} (${item.latinName}) — ${item.glyphTitle}`
-                  : 'Undiscovered Manifestation — Summon to awaken'
+                  ? `${index + 1}. ${item.name} (${item.latinName})`
+                  : 'Dormant Sigil — Awaken in the mirror'
               }
               aria-label={
                 isDiscovered
-                  ? `${item.name}: ${item.glyphTitle}`
-                  : 'Undiscovered Manifestation'
+                  ? `${index + 1}. ${item.name}`
+                  : `Sigil ${index + 1}`
               }
-              className={`relative group w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 focus:outline-none focus:ring-1 focus:ring-[#8c7b60] ${
+              className={`relative group w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-[#d4af37] ${
                 isActive
-                  ? 'bg-[#1e1913] border border-[#d4af37]/70 shadow-[0_0_10px_rgba(212,175,55,0.35)] scale-110'
+                  ? 'scale-115 shadow-[0_0_14px_rgba(255,200,80,0.8)] border border-[#ffd700]'
                   : isDiscovered
-                  ? 'bg-[#14100c] border border-[#4a3d2e] hover:border-[#8c7352] hover:bg-[#1a1510]'
-                  : 'bg-[#0a0807] border border-[#1e1914]/60 opacity-40 cursor-not-allowed'
+                  ? 'border border-[#5e432c] hover:border-[#d4af37] hover:scale-105 opacity-90'
+                  : 'border border-[#261910] opacity-35 cursor-not-allowed filter grayscale'
               }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                className={`w-4 h-4 transition-all duration-300 ${
+              {/* Production Talisman / Celestial Sigil Graphic Coin */}
+              <img
+                src={isActive ? celestialImg : talismanImg}
+                alt={item.name}
+                referrerPolicy="no-referrer"
+                className={`w-full h-full object-contain rounded-full transition-all duration-300 ${
                   isActive
-                    ? 'text-[#f0e2b6] filter drop-shadow-[0_0_3px_rgba(240,226,182,0.8)]'
+                    ? 'filter drop-shadow-[0_0_8px_rgba(255,180,40,0.95)] brightness-110'
                     : isDiscovered
-                    ? 'text-[#9c8972] group-hover:text-[#c4b39b]'
-                    : 'text-[#383026]'
+                    ? 'brightness-90 group-hover:brightness-110'
+                    : 'brightness-50'
                 }`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={isDiscovered ? '1.75' : '1.2'}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d={item.glyph} />
-              </svg>
+              />
 
-              {/* Active occult beacon dot */}
+              {/* Active Golden Glow Under Coin */}
               {isActive && (
-                <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-[#d4af37] shadow-[0_0_4px_#d4af37]" />
+                <span className="absolute -bottom-1.5 w-2 h-2 rounded-full bg-[#ffd700] shadow-[0_0_8px_#ffd700] animate-pulse" />
               )}
             </button>
           );
         })}
-      </div>
-
-      {/* Discovery Count Micro-engraving */}
-      <div className="text-[10px] tracking-[0.2em] uppercase text-[#695d4d] font-cinzel select-none flex items-center gap-1">
-        <span>BOUND SIGILS:</span>
-        <span className="text-[#a8957c] font-semibold">
-          {discovered.size} / {MANIFESTATION_ORDER.length}
-        </span>
       </div>
     </div>
   );

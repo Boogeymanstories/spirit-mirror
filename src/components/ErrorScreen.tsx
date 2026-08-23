@@ -1,6 +1,6 @@
 import React from 'react';
 import { CameraStatus } from '../types';
-import { RefreshCw, EyeOff, AlertTriangle } from 'lucide-react';
+import { EyeOff, AlertTriangle } from 'lucide-react';
 
 interface ErrorScreenProps {
   status: CameraStatus;
@@ -20,31 +20,26 @@ export const ErrorScreen: React.FC<ErrorScreenProps> = ({
       case 'permission_denied':
         return {
           title: 'THE GLASS CANNOT SEE YOU',
-          subtitle: 'Camera Permission Denied',
-          explanation:
-            'The mirror requires access to your front-facing camera to bind the manifestation to your reflection. Please allow camera permissions in your browser bar or iframe settings.',
+          subtitle: 'Camera access is required to awaken the mirror.',
+          buttonText: 'TRY AGAIN',
         };
       case 'camera_unavailable':
         return {
           title: 'VISION OBSCURED',
-          subtitle: 'Camera Device Unavailable',
-          explanation:
-            'No operational front camera could be engaged, or your camera is currently locked by another application.',
+          subtitle: 'Camera device unavailable or currently in use by another program.',
+          buttonText: 'RETRY COMMUNION',
         };
       case 'unsupported':
         return {
           title: 'INCOMPATIBLE VESSEL',
-          subtitle: 'Security Restriction',
-          explanation:
-            'Camera access requires a secure connection (HTTPS) or iframe permission delegation (allow="camera").',
+          subtitle: 'Camera access requires a secure connection (HTTPS) or iframe permissions.',
+          buttonText: 'TRY AGAIN',
         };
       default:
         return {
           title: 'RITUAL INTERRUPTED',
-          subtitle: 'Spectral Failure',
-          explanation:
-            errorMessage ||
-            'The supernatural glass was unable to manifest. Ensure camera device connectivity and try once more.',
+          subtitle: errorMessage || 'The supernatural glass was unable to manifest reflection.',
+          buttonText: 'TRY AGAIN',
         };
     }
   };
@@ -52,44 +47,53 @@ export const ErrorScreen: React.FC<ErrorScreenProps> = ({
   const details = getDetails();
 
   return (
-    <div className="absolute inset-0 bg-[#0a0807]/95 flex flex-col items-center justify-center p-5 text-center z-30 select-none">
-      {/* Antique Warning Crest */}
-      <div className="w-12 h-12 rounded-full border border-[#522b2b] bg-[#1a0f0f] flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(180,50,50,0.2)]">
-        {status === 'permission_denied' ? (
-          <EyeOff className="w-6 h-6 text-[#c45a5a]" />
-        ) : (
-          <AlertTriangle className="w-6 h-6 text-[#c45a5a]" />
-        )}
+    <div className="absolute inset-0 bg-[#080503]/96 flex flex-col items-center justify-between p-6 text-center z-30 select-none">
+      
+      {/* Top Warning Icon */}
+      <div className="flex flex-col items-center gap-2 mt-6">
+        <div className="w-10 h-10 rounded-full border border-[#6b3030] bg-[#1a0c0c] flex items-center justify-center shadow-[0_0_15px_rgba(180,45,45,0.3)]">
+          {status === 'permission_denied' ? (
+            <EyeOff className="w-4 h-4 text-[#d46a6a]" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-[#d46a6a]" />
+          )}
+        </div>
+
+        <h3 className="text-[14px] font-cinzel font-bold text-[#e6b5b5] tracking-[0.2em] uppercase engraved-text mt-1">
+          {details.title}
+        </h3>
+
+        <p className="text-[11.5px] font-spectral text-[#bdae9c] leading-relaxed max-w-[220px] italic mt-1">
+          "{details.subtitle}"
+        </p>
       </div>
 
-      <h3 className="text-sm font-cinzel-dec font-bold text-[#e0a8a8] tracking-[0.14em] uppercase mb-1 engraved-text">
-        {details.title}
-      </h3>
-
-      <div className="text-[11px] font-cinzel text-[#8c6b6b] tracking-wider uppercase mb-3">
-        {details.subtitle}
-      </div>
-
-      <p className="text-[12px] font-spectral text-[#a39485] leading-relaxed mb-5 max-w-[260px] italic">
-        "{details.explanation}"
-      </p>
-
-      <div className="flex flex-col gap-2.5 w-full max-w-[220px]">
+      {/* Cartouche Action Buttons */}
+      <div className="flex flex-col gap-3 w-full max-w-[220px] mb-4">
         <button
           type="button"
           onClick={onRetry}
-          className="w-full py-2 px-4 rounded bg-[#241717] hover:bg-[#331f1f] border border-[#6b3535] hover:border-[#964a4a] text-[#f2dada] font-cinzel text-[11px] tracking-[0.18em] uppercase transition-all duration-200 flex items-center justify-center gap-2 shadow-md active:scale-98"
+          className="w-full py-2.5 px-4 rounded-sm border cartouche-button transition-all duration-200 flex items-center justify-center gap-2 select-none focus:outline-none focus:ring-1 focus:ring-[#d4af37]"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
-          RETRY COMMUNION
+          {/* Plaque Corner Diamond Rivets */}
+          <div className="absolute top-1 left-1.5 w-1 h-1 rotate-45 bg-[#785b37]" />
+          <div className="absolute top-1 right-1.5 w-1 h-1 rotate-45 bg-[#785b37]" />
+          <div className="absolute bottom-1 left-1.5 w-1 h-1 rotate-45 bg-[#785b37]" />
+          <div className="absolute bottom-1 right-1.5 w-1 h-1 rotate-45 bg-[#785b37]" />
+
+          <span className="font-cinzel text-[11.5px] tracking-[0.2em] uppercase font-bold text-[#efe3cb] engraved-gold flex items-center gap-2">
+            <span className="text-[#d4af37] text-[9px]">✦</span>
+            <span>{details.buttonText}</span>
+            <span className="text-[#d4af37] text-[9px]">✦</span>
+          </span>
         </button>
 
         <button
           type="button"
           onClick={onReset}
-          className="w-full py-1.5 px-3 text-[10px] text-[#7a6b5c] hover:text-[#b09e8b] font-cinzel tracking-[0.14em] uppercase transition-colors"
+          className="w-full py-1 text-[9px] text-[#7d6d5c] hover:text-[#bdae9d] font-cinzel tracking-[0.18em] uppercase transition-colors focus:outline-none"
         >
-          RETURN TO WAITING STATE
+          RETURN TO RESTING STATE
         </button>
       </div>
     </div>

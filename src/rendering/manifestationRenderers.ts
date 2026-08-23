@@ -1,11 +1,12 @@
 import { FaceMetrics, ManifestationId, ParanormalState, Point2D } from '../types';
+import { ARTWORK, getLoadedImage } from '../assets/artwork';
 
-// History buffer for Doppelgänger lag effect
 interface HistoricalFrame {
   center: Point2D;
   scale: number;
   rotationZ: number;
   rotationY: number;
+  rotationX: number;
   leftEye: Point2D;
   rightEye: Point2D;
   mouthCenter: Point2D;
@@ -15,7 +16,7 @@ interface HistoricalFrame {
 }
 
 const lagHistory: HistoricalFrame[] = [];
-const MAX_HISTORY_LEN = 30;
+const MAX_HISTORY_LEN = 60;
 
 export function renderManifestationOverlay(
   ctx: CanvasRenderingContext2D,
@@ -25,22 +26,23 @@ export function renderManifestationOverlay(
   manifestationId: ManifestationId,
   paranormal: ParanormalState,
   timeMs: number,
-  reducedMotion: boolean
+  reducedMotion: boolean,
+  delayedCanvas?: HTMLCanvasElement | null
 ) {
   if (!metrics.detected) {
-    // Fade out or show ambient mirror presence if not detected
     if (manifestationId === 'passenger') {
       renderAmbientPassenger(ctx, width, height, timeMs, reducedMotion);
     }
     return;
   }
 
-  // Update history buffer for Doppelgänger
+  // Update history buffer for temporal effects
   lagHistory.unshift({
     center: { ...metrics.center },
     scale: metrics.scale,
     rotationZ: metrics.rotationZ,
     rotationY: metrics.rotationY,
+    rotationX: metrics.rotationX,
     leftEye: { ...metrics.leftEye },
     rightEye: { ...metrics.rightEye },
     mouthCenter: { ...metrics.mouthCenter },
@@ -65,14 +67,14 @@ export function renderManifestationOverlay(
       renderTheGrinningGuest(ctx, width, height, metrics, timeMs, reducedMotion);
       break;
     case 'doppelganger':
-      renderTheDoppelganger(ctx, width, height, metrics, timeMs, reducedMotion);
+      renderTheDoppelganger(ctx, width, height, metrics, timeMs, reducedMotion, delayedCanvas);
       break;
     case 'passenger':
       renderThePassenger(ctx, width, height, metrics, timeMs, reducedMotion);
       break;
   }
 
-  // Render autonomous paranormal effects if active
+  // Autonomous rare paranormal events if active
   if (paranormal.activeEvent) {
     renderParanormalEffect(ctx, width, height, metrics, paranormal, timeMs, reducedMotion);
   }
@@ -80,9 +82,9 @@ export function renderManifestationOverlay(
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// 1. THE HOLLOW (Umbra Vacua)
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// 1. THE HOLLOW (Umbra Vacua) - Cursed Sunken Relic Transformation
+// ----------------------------------------------------------------------
 function renderTheHollow(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -97,108 +99,115 @@ function renderTheHollow(
   const ly = metrics.leftEye.y * height;
   const rx = metrics.rightEye.x * width;
   const ry = metrics.rightEye.y * height;
-  const fw = Math.max(metrics.faceWidth * width, 50);
-  const fh = Math.max(metrics.faceHeight * height, 70);
+  const fw = Math.max(metrics.faceWidth * width, 70);
+  const fh = Math.max(metrics.faceHeight * height, 90);
 
-  // 1. Ashen facial desaturation vignette
-  const faceGrad = ctx.createRadialGradient(cx, cy, fw * 0.1, cx, cy, fw * 0.9);
-  faceGrad.addColorStop(0, 'rgba(15, 20, 18, 0.45)');
-  faceGrad.addColorStop(0.6, 'rgba(25, 30, 28, 0.35)');
-  faceGrad.addColorStop(1, 'rgba(10, 12, 10, 0)');
-  ctx.fillStyle = faceGrad;
+  ctx.save();
+
+  // 1. Richer Ashen Mortuary Skin Tint over Facial Core
+  const ashenGrad = ctx.createRadialGradient(cx, cy, fw * 0.15, cx, cy, fw * 0.88);
+  ashenGrad.addColorStop(0, 'rgba(10, 16, 15, 0.42)');
+  ashenGrad.addColorStop(0.65, 'rgba(14, 18, 17, 0.26)');
+  ashenGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = ashenGrad;
   ctx.beginPath();
-  ctx.ellipse(cx, cy, fw * 0.85, fh * 0.95, metrics.rotationZ, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy, fw * 0.78, fh * 0.88, metrics.rotationZ, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. Sunken Cheekbone Hollow Shadows
-  const rotCos = Math.cos(metrics.rotationZ);
-  const rotSin = Math.sin(metrics.rotationZ);
-  const cheekOffset = fw * 0.42;
-  const cheekYOffset = fh * 0.15;
+  // 2. Soft-Blended Cursed Relic Stone & Gilded Fissures
+  const maskImg = getLoadedImage(ARTWORK.cursedStoneMask);
+  if (maskImg) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(metrics.rotationZ);
 
-  ctx.fillStyle = 'rgba(8, 10, 8, 0.6)';
-  // Left cheek hollow
-  ctx.beginPath();
-  ctx.ellipse(
-    cx - cheekOffset * rotCos + cheekYOffset * rotSin,
-    cy - cheekOffset * rotSin - cheekYOffset * rotCos,
-    fw * 0.22,
-    fh * 0.28,
-    metrics.rotationZ - 0.2,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
+    const maskW = fw * 1.85;
+    const maskH = (maskW * maskImg.naturalHeight) / maskImg.naturalWidth;
 
-  // Right cheek hollow
-  ctx.beginPath();
-  ctx.ellipse(
-    cx + cheekOffset * rotCos + cheekYOffset * rotSin,
-    cy + cheekOffset * rotSin - cheekYOffset * rotCos,
-    fw * 0.22,
-    fh * 0.28,
-    metrics.rotationZ + 0.2,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
-
-  // 3. Deepening void around eye sockets
-  const eyeRadius = fw * 0.22;
-  const drawSocket = (ex: number, ey: number) => {
-    const socketGrad = ctx.createRadialGradient(ex, ey, eyeRadius * 0.1, ex, ey, eyeRadius);
-    socketGrad.addColorStop(0, 'rgba(2, 2, 2, 0.95)');
-    socketGrad.addColorStop(0.5, 'rgba(10, 12, 12, 0.85)');
-    socketGrad.addColorStop(0.85, 'rgba(20, 25, 22, 0.5)');
-    socketGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = socketGrad;
+    // Feathered elliptical clipping so it seamlessly melts into the real facial structure
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(ex, ey, eyeRadius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.ellipse(0, 0, fw * 0.72, fh * 0.82, 0, 0, Math.PI * 2);
+    ctx.clip();
 
-    // Piercing cold pinpoint glimmer in the dark
-    const pulse = reducedMotion ? 0.6 : 0.4 + 0.3 * Math.sin(timeMs * 0.003 + ex);
-    ctx.fillStyle = `rgba(180, 230, 220, ${pulse})`;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.52;
+    ctx.drawImage(maskImg, -maskW / 2, -maskH * 0.46, maskW, maskH);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // 3. Sunken Hollow Cheek & Temple Shading
+  const drawHollowShadow = (x: number, y: number, r: number) => {
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, 'rgba(2, 3, 4, 0.75)');
+    grad.addColorStop(0.55, 'rgba(4, 6, 7, 0.38)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(ex, ey - 1, 1.4, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
   };
 
-  drawSocket(lx, ly);
-  drawSocket(rx, ry);
+  const lcx = metrics.leftCheek.x * width;
+  const lcy = metrics.leftCheek.y * height;
+  const rcx = metrics.rightCheek.x * width;
+  const rcy = metrics.rightCheek.y * height;
+  drawHollowShadow(lcx, lcy, fw * 0.28);
+  drawHollowShadow(rcx, rcy, fw * 0.28);
 
-  // 4. Delicate cracked clay fractures branching down forehead and cheeks
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(metrics.rotationZ);
-  ctx.strokeStyle = 'rgba(10, 12, 10, 0.7)';
+  // 4. Deep Darkened Abyssal Eye Sockets
+  const socketRadius = Math.max(fw * 0.22, 16);
+  const drawDeepSocket = (ex: number, ey: number) => {
+    const socketGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, socketRadius);
+    socketGrad.addColorStop(0, 'rgba(1, 2, 2, 0.98)');
+    socketGrad.addColorStop(0.5, 'rgba(3, 5, 6, 0.92)');
+    socketGrad.addColorStop(0.85, 'rgba(7, 10, 12, 0.5)');
+    socketGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = socketGrad;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, socketRadius * 1.12, socketRadius * 0.95, metrics.rotationZ, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Piercing Soul Pinpoint inside Socket
+    const pulse = reducedMotion ? 0.85 : 0.65 + 0.35 * Math.sin(timeMs * 0.0035 + ex);
+    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(225, 185, 75, ${pulse * 0.8})`;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  drawDeepSocket(lx, ly);
+  drawDeepSocket(rx, ry);
+
+  // 5. Gilded Branching Fissure Highlights
+  ctx.strokeStyle = 'rgba(215, 175, 65, 0.68)';
   ctx.lineWidth = 1.1;
   ctx.beginPath();
-
-  // Forehead crack
-  ctx.moveTo(0, -fh * 0.3);
-  ctx.lineTo(-fw * 0.08, -fh * 0.5);
-  ctx.lineTo(fw * 0.04, -fh * 0.65);
-  ctx.lineTo(-fw * 0.02, -fh * 0.82);
-
-  // Left cheek branch
-  ctx.moveTo(-fw * 0.2, ly - cy + eyeRadius * 0.8);
-  ctx.lineTo(-fw * 0.35, fh * 0.2);
-  ctx.lineTo(-fw * 0.28, fh * 0.38);
-  ctx.lineTo(-fw * 0.42, fh * 0.52);
-
-  // Right cheek branch
-  ctx.moveTo(fw * 0.22, ry - cy + eyeRadius * 0.8);
-  ctx.lineTo(fw * 0.32, fh * 0.18);
-  ctx.lineTo(fw * 0.38, fh * 0.35);
-
+  const fx = metrics.forehead.x * width;
+  const fy = metrics.forehead.y * height;
+  ctx.moveTo(fx, fy);
+  ctx.lineTo(fx + 5, fy + fh * 0.12);
+  ctx.lineTo(fx - 4, fy + fh * 0.21);
+  ctx.moveTo(lcx, lcy - 5);
+  ctx.lineTo(lcx - 6, lcy + 12);
+  ctx.moveTo(rcx, rcy - 5);
+  ctx.lineTo(rcx + 6, rcy + 12);
   ctx.stroke();
+
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// 2. THE VEILED ONE (Mors Velata)
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// 2. THE VEILED ONE (Mors Velata) - Ghostly Mourning Spirit Apparition
+// ----------------------------------------------------------------------
 function renderTheVeiledOne(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -209,85 +218,116 @@ function renderTheVeiledOne(
 ) {
   const cx = metrics.center.x * width;
   const cy = metrics.center.y * height;
-  const fw = Math.max(metrics.faceWidth * width, 60);
-  const fh = Math.max(metrics.faceHeight * height, 80);
+  const lx = metrics.leftEye.x * width;
+  const ly = metrics.leftEye.y * height;
+  const rx = metrics.rightEye.x * width;
+  const ry = metrics.rightEye.y * height;
+  const fw = Math.max(metrics.faceWidth * width, 70);
+  const fh = Math.max(metrics.faceHeight * height, 90);
 
-  // 1. Ghostly skeletal contours under skin
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(metrics.rotationZ);
 
-  // Skeletal nose cavity hint
-  ctx.fillStyle = 'rgba(5, 5, 8, 0.55)';
+  // 1. Spectral Alabaster / Moonlight Mortuary Tint (Real Face clearly visible underneath)
+  const paleGlow = ctx.createRadialGradient(cx, cy, fw * 0.1, cx, cy, fw * 0.88);
+  paleGlow.addColorStop(0, 'rgba(205, 230, 235, 0.24)');
+  paleGlow.addColorStop(0.55, 'rgba(165, 195, 205, 0.14)');
+  paleGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = paleGlow;
   ctx.beginPath();
-  ctx.moveTo(0, -fh * 0.02);
-  ctx.lineTo(-fw * 0.08, fh * 0.08);
-  ctx.lineTo(0, fh * 0.05);
-  ctx.lineTo(fw * 0.08, fh * 0.08);
-  ctx.closePath();
+  ctx.ellipse(cx, cy, fw * 0.78, fh * 0.88, metrics.rotationZ, 0, Math.PI * 2);
   ctx.fill();
 
-  // Malar bone & jaw skeletal shading
-  ctx.strokeStyle = 'rgba(180, 190, 205, 0.2)';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  // Zygomatic arches
-  ctx.arc(-fw * 0.3, -fh * 0.05, fw * 0.15, 0, Math.PI * 0.7);
-  ctx.arc(fw * 0.3, -fh * 0.05, fw * 0.15, Math.PI * 0.3, Math.PI);
-  ctx.stroke();
-
-  // 2. Funeral Mourning Lace Veil Draped Over Crown
-  const wave = reducedMotion ? 0 : Math.sin(timeMs * 0.002) * 4;
-  const veilTop = -fh * 0.85;
-  const veilBottom = fh * 0.95;
-
-  // Dark sheer veil layer
-  const veilGrad = ctx.createLinearGradient(0, veilTop, 0, veilBottom);
-  veilGrad.addColorStop(0, 'rgba(8, 7, 12, 0.92)');
-  veilGrad.addColorStop(0.3, 'rgba(12, 10, 16, 0.75)');
-  veilGrad.addColorStop(0.7, 'rgba(15, 12, 18, 0.6)');
-  veilGrad.addColorStop(1, 'rgba(5, 5, 8, 0.85)');
-
-  ctx.fillStyle = veilGrad;
-  ctx.beginPath();
-  ctx.moveTo(-fw * 0.75, veilTop + fh * 0.3);
-  ctx.quadraticCurveTo(0, veilTop - 10, fw * 0.75, veilTop + fh * 0.3);
-  ctx.quadraticCurveTo(fw * 0.85 + wave, cy + fh * 0.4, fw * 0.65, veilBottom);
-  ctx.quadraticCurveTo(0, veilBottom + 15, -fw * 0.65, veilBottom);
-  ctx.quadraticCurveTo(-fw * 0.85 - wave, cy + fh * 0.4, -fw * 0.75, veilTop + fh * 0.3);
-  ctx.closePath();
-  ctx.fill();
-
-  // Victorian Lace Filigree Patterns on Veil
-  ctx.strokeStyle = 'rgba(140, 130, 155, 0.22)';
-  ctx.lineWidth = 0.9;
-  for (let i = -3; i <= 3; i++) {
-    const xOffset = i * (fw * 0.2);
+  // 2. Sorrowful Shadowed Eye Wells under Mourning Veil with Glassy Tear Trails
+  const drawSorrowfulEye = (ex: number, ey: number, isLeft: boolean) => {
+    const eyeGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, fw * 0.2);
+    eyeGrad.addColorStop(0, 'rgba(6, 10, 14, 0.82)');
+    eyeGrad.addColorStop(0.65, 'rgba(12, 18, 24, 0.38)');
+    eyeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = eyeGrad;
     ctx.beginPath();
-    ctx.arc(xOffset, -fh * 0.4, fw * 0.18, 0, Math.PI);
-    ctx.arc(xOffset, 0, fw * 0.18, 0, Math.PI);
-    ctx.arc(xOffset, fh * 0.4, fw * 0.18, 0, Math.PI);
+    ctx.arc(ex, ey, fw * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cold moonlight glassy tear glint
+    const glintAlpha = reducedMotion ? 0.75 : 0.6 + 0.3 * Math.sin(timeMs * 0.002 + (isLeft ? 0 : 1.2));
+    ctx.fillStyle = `rgba(220, 245, 255, ${glintAlpha})`;
+    ctx.beginPath();
+    ctx.arc(ex, ey + 2.5, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Spectral tear trail descending down the cheek
+    ctx.strokeStyle = `rgba(180, 220, 235, ${glintAlpha * 0.45})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey + 4);
+    ctx.lineTo(ex + (isLeft ? -2 : 2), ey + fh * 0.22);
     ctx.stroke();
+  };
+
+  drawSorrowfulEye(lx, ly, true);
+  drawSorrowfulEye(rx, ry, false);
+
+  // 3. Faint Dark Mortuary Lip Stain
+  const mx = metrics.mouthCenter.x * width;
+  const my = metrics.mouthCenter.y * height;
+  const lipGrad = ctx.createRadialGradient(mx, my, 0, mx, my, fw * 0.22);
+  lipGrad.addColorStop(0, 'rgba(25, 12, 18, 0.55)');
+  lipGrad.addColorStop(0.7, 'rgba(15, 8, 12, 0.2)');
+  lipGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = lipGrad;
+  ctx.beginPath();
+  ctx.ellipse(mx, my, fw * 0.24, fh * 0.12, metrics.rotationZ, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4. Flowing Mourning Lace Headdress & Sheer Shroud
+  const veilImg = getLoadedImage(ARTWORK.veiledOneOverlay);
+  const veilDrift = reducedMotion ? 0 : Math.sin(timeMs * 0.0016) * 4;
+  const veilBreath = reducedMotion ? 0.85 : 0.76 + 0.14 * Math.sin(timeMs * 0.002);
+
+  if (veilImg) {
+    ctx.save();
+    ctx.translate(cx, cy - fh * 0.06 + veilDrift);
+    ctx.rotate(metrics.rotationZ);
+
+    const veilW = fw * 2.6;
+    const veilH = (veilW * veilImg.naturalHeight) / veilImg.naturalWidth;
+
+    // Translucent screen blend so the lace headdress drapes around and beyond the head
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = veilBreath;
+    ctx.drawImage(veilImg, -veilW / 2, -veilH * 0.42, veilW, veilH);
+    ctx.restore();
   }
 
-  // Wispy trailing tendrils at veil hem
-  ctx.strokeStyle = 'rgba(20, 18, 26, 0.7)';
-  ctx.lineWidth = 2.5;
+  // 5. Delicate Sheer Lace Texture Cascading Across Brow & Beyond
+  ctx.save();
+  ctx.translate(cx, cy + veilDrift * 0.5);
+  ctx.rotate(metrics.rotationZ);
+  ctx.strokeStyle = `rgba(180, 215, 230, ${veilBreath * 0.3})`;
+  ctx.lineWidth = 0.9;
   ctx.beginPath();
-  for (let j = -4; j <= 4; j++) {
-    const startX = j * (fw * 0.14);
-    const drop = 15 + Math.sin(timeMs * 0.003 + j) * 8;
-    ctx.moveTo(startX, veilBottom);
-    ctx.quadraticCurveTo(startX + (reducedMotion ? 0 : Math.sin(timeMs * 0.002 + j) * 6), veilBottom + drop * 0.5, startX, veilBottom + drop);
+  // Lace filigree curves over crown
+  for (let i = -3; i <= 3; i++) {
+    const xOff = i * (fw * 0.2);
+    ctx.arc(xOff, -fh * 0.42, fw * 0.14, 0, Math.PI);
   }
   ctx.stroke();
+  ctx.restore();
+
+  // 6. Spectral Mourning Mist Shroud Around Shoulders
+  const shroudGrad = ctx.createLinearGradient(cx, cy + fh * 0.35, cx, height);
+  shroudGrad.addColorStop(0, 'rgba(160, 205, 220, 0.14)');
+  shroudGrad.addColorStop(0.5, 'rgba(120, 165, 185, 0.08)');
+  shroudGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = shroudGrad;
+  ctx.fillRect(0, cy + fh * 0.35, width, height - (cy + fh * 0.35));
 
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// 3. THE GRINNING GUEST (Hospes Ridens)
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// 3. THE GRINNING GUEST (Hospes Ridens) - Integrated Porcelain Demon Grin
+// ----------------------------------------------------------------------
 function renderTheGrinningGuest(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -304,182 +344,187 @@ function renderTheGrinningGuest(
   const ry = metrics.rightEye.y * height;
   const mx = metrics.mouthCenter.x * width;
   const my = metrics.mouthCenter.y * height;
-  const fw = Math.max(metrics.faceWidth * width, 60);
-  const fh = Math.max(metrics.faceHeight * height, 80);
+  const fw = Math.max(metrics.faceWidth * width, 70);
+  const fh = Math.max(metrics.faceHeight * height, 90);
 
-  // 1. Deep sunken void eyes
-  const eyeR = fw * 0.2;
-  const drawDeepSocket = (ex: number, ey: number) => {
-    const sGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, eyeR);
-    sGrad.addColorStop(0, '#000000');
-    sGrad.addColorStop(0.7, 'rgba(5, 0, 0, 0.9)');
-    sGrad.addColorStop(1, 'rgba(20, 5, 5, 0)');
-    ctx.fillStyle = sGrad;
+  ctx.save();
+
+  // 1. Porcelain Smile Integrated into Lower Jaw / Mouth Third
+  const grinImg = getLoadedImage(ARTWORK.demonGrinMask);
+  if (grinImg) {
+    ctx.save();
+    ctx.translate(cx, cy - fh * 0.02);
+    ctx.rotate(metrics.rotationZ);
+
+    const grinW = fw * 1.9;
+    const grinH = (grinW * grinImg.naturalHeight) / grinImg.naturalWidth;
+
+    // Feathered mask preserving upper face and blending seamlessly into real jawline
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, fw * 0.74, fh * 0.84, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(grinImg, -grinW / 2, -grinH * 0.45, grinW, grinH);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // 2. Uncanny Jaw & Smile Extension Shading
+  const jawGrad = ctx.createRadialGradient(mx, my, fw * 0.12, mx, my, fw * 0.58);
+  jawGrad.addColorStop(0, 'rgba(18, 2, 3, 0.48)');
+  jawGrad.addColorStop(0.7, 'rgba(10, 2, 3, 0.16)');
+  jawGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = jawGrad;
+  ctx.beginPath();
+  ctx.ellipse(mx, my, fw * 0.52, fh * 0.32, metrics.rotationZ, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 3. Piercing Manic Pupils & Widened Ocular Sockets
+  const drawManicEye = (ex: number, ey: number) => {
+    const socketGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, fw * 0.15);
+    socketGrad.addColorStop(0, 'rgba(3, 2, 4, 0.78)');
+    socketGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = socketGrad;
+    ctx.beginPath();
+    ctx.arc(ex, ey, fw * 0.15, 0, Math.PI * 2);
     ctx.fill();
 
-    // Red-ember tiny ocular pinpoint
-    const emberPulse = reducedMotion ? 0.7 : 0.5 + 0.4 * Math.sin(timeMs * 0.004);
-    ctx.fillStyle = `rgba(190, 45, 45, ${emberPulse})`;
+    const gleam = reducedMotion ? 1.0 : 0.8 + 0.2 * Math.sin(timeMs * 0.005 + ex);
+    ctx.fillStyle = `rgba(255, 255, 255, ${gleam})`;
     ctx.beginPath();
-    ctx.arc(ex, ey, 1.8, 0, Math.PI * 2);
+    ctx.arc(ex, ey, 2.2, 0, Math.PI * 2);
     ctx.fill();
   };
 
-  drawDeepSocket(lx, ly);
-  drawDeepSocket(rx, ry);
-
-  // 2. Impossible Widened Needled Smile
-  ctx.save();
-  ctx.translate(mx, my);
-  ctx.rotate(metrics.rotationZ);
-
-  const grinWidth = fw * 0.92; // Stretches almost across cheekbones
-  const grinHeight = fh * 0.42;
-
-  // Mouth void background
-  ctx.fillStyle = '#020000';
-  ctx.beginPath();
-  ctx.moveTo(-grinWidth * 0.5, 0);
-  // Upper lip arc
-  ctx.quadraticCurveTo(0, -grinHeight * 0.45, grinWidth * 0.5, 0);
-  // Lower lip deep dropping arc
-  ctx.quadraticCurveTo(0, grinHeight * 0.95, -grinWidth * 0.5, 0);
-  ctx.closePath();
-  ctx.fill();
-
-  // Dark bruised rim around stretched mouth
-  ctx.strokeStyle = 'rgba(60, 15, 15, 0.65)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // Shadowy rows of needle-like teeth
-  const numTeeth = 18;
-  ctx.fillStyle = 'rgba(215, 205, 190, 0.85)';
-  ctx.beginPath();
-
-  // Upper row of sharp teeth
-  for (let i = 0; i < numTeeth; i++) {
-    const t = (i / (numTeeth - 1)) * 2 - 1; // -1 to 1
-    const tx = t * (grinWidth * 0.44);
-    const ty = (t * t - 1) * (grinHeight * 0.25);
-    const toothLen = (1 - Math.abs(t) * 0.4) * (grinHeight * 0.35);
-
-    ctx.moveTo(tx - 2, ty);
-    ctx.lineTo(tx, ty + toothLen);
-    ctx.lineTo(tx + 2, ty);
-  }
-
-  // Lower row of sharp teeth
-  for (let i = 0; i < numTeeth - 2; i++) {
-    const t = (i / (numTeeth - 3)) * 2 - 1;
-    const tx = t * (grinWidth * 0.4);
-    const ty = (1 - t * t) * (grinHeight * 0.5);
-    const toothLen = (1 - Math.abs(t) * 0.4) * (grinHeight * 0.3);
-
-    ctx.moveTo(tx - 2, ty);
-    ctx.lineTo(tx, ty - toothLen);
-    ctx.lineTo(tx + 2, ty);
-  }
-  ctx.closePath();
-  ctx.fill();
-
-  // Shadow overlay inside mouth depth
-  const mouthShadow = ctx.createRadialGradient(0, grinHeight * 0.1, 5, 0, grinHeight * 0.1, grinWidth * 0.5);
-  mouthShadow.addColorStop(0, 'rgba(0, 0, 0, 0.1)');
-  mouthShadow.addColorStop(0.7, 'rgba(5, 0, 0, 0.6)');
-  mouthShadow.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
-  ctx.fillStyle = mouthShadow;
-  ctx.beginPath();
-  ctx.moveTo(-grinWidth * 0.5, 0);
-  ctx.quadraticCurveTo(0, -grinHeight * 0.45, grinWidth * 0.5, 0);
-  ctx.quadraticCurveTo(0, grinHeight * 0.95, -grinWidth * 0.5, 0);
-  ctx.closePath();
-  ctx.fill();
+  drawManicEye(lx, ly);
+  drawManicEye(rx, ry);
 
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// 4. THE DOPPELGÄNGER (Duplex Umbra)
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// 4. THE DOPPELGÄNGER (Duplex Umbra) - Pure Temporal Reflection Anomaly
+// ----------------------------------------------------------------------
 function renderTheDoppelganger(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
   metrics: FaceMetrics,
   timeMs: number,
-  reducedMotion: boolean
+  reducedMotion: boolean,
+  delayedCanvas?: HTMLCanvasElement | null
 ) {
-  // Retrieve historical frame from ~8-14 frames ago (approx 150-250ms delayed)
-  const targetLagIdx = Math.min(lagHistory.length - 1, reducedMotion ? 2 : 10);
-  const delayedFrame = lagHistory[targetLagIdx] || metrics;
+  // Target historical frames for temporal desync
+  const lagCycle = reducedMotion ? 0 : Math.sin(timeMs * 0.0012);
+  // Periodic hesitation: duplicate lingers even further behind (12-15 frames), then glides to catch up
+  const lagDepth = reducedMotion ? 4 : Math.floor(8 + 6 * Math.max(0, lagCycle));
+  const delayedIndex = Math.min(lagHistory.length - 1, lagDepth);
+  const delayedFrame = lagHistory[delayedIndex] || metrics;
 
   const dx = (delayedFrame.center.x - metrics.center.x) * width;
   const dy = (delayedFrame.center.y - metrics.center.y) * height;
-  const speed = Math.hypot(dx, dy);
+  const dRot = delayedFrame.rotationZ - metrics.rotationZ;
 
-  const cx = delayedFrame.center.x * width;
-  const cy = delayedFrame.center.y * height;
-  const fw = Math.max(delayedFrame.faceWidth * width, 60);
-  const fh = Math.max(delayedFrame.faceHeight * height, 80);
+  const fw = Math.max(metrics.faceWidth * width, 65);
+  const fh = Math.max(metrics.faceHeight * height, 85);
 
-  // 1. Ghost Reflection Silhouette trailing
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(delayedFrame.rotationZ);
 
-  // Chromatic split during motion
-  const splitOffset = reducedMotion ? 0 : Math.min(speed * 0.25, 8);
+  // 1. Composite Delayed Video Reflection with Restrained Chromatic Shift
+  if (delayedCanvas && delayedCanvas.width > 0) {
+    const splitOffset = reducedMotion ? 0 : Math.min(Math.hypot(dx, dy) * 0.35 + 2.5, 7.5);
 
-  // Red channel displacement ghost
-  ctx.fillStyle = 'rgba(180, 50, 60, 0.18)';
-  ctx.beginPath();
-  ctx.ellipse(-splitOffset, 0, fw * 0.7, fh * 0.85, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // Delayed Reflection Layer (Feathered around user's upper body / head area)
+    ctx.save();
+    ctx.beginPath();
+    const dcx = delayedFrame.center.x * width;
+    const dcy = delayedFrame.center.y * height;
+    ctx.ellipse(dcx, dcy + fh * 0.2, fw * 1.5, fh * 1.8, delayedFrame.rotationZ, 0, Math.PI * 2);
+    ctx.clip();
 
-  // Cyan channel displacement ghost
-  ctx.fillStyle = 'rgba(50, 160, 180, 0.22)';
-  ctx.beginPath();
-  ctx.ellipse(splitOffset, 0, fw * 0.7, fh * 0.85, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // Cyan chromatic lag channel
+    ctx.save();
+    ctx.globalAlpha = 0.42;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(delayedCanvas, splitOffset, 0, width, height);
+    ctx.fillStyle = 'rgba(0, 220, 245, 0.25)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
-  // Dark delayed face mask
-  const ghostGrad = ctx.createRadialGradient(0, 0, fw * 0.1, 0, 0, fw * 0.8);
-  ghostGrad.addColorStop(0, 'rgba(5, 8, 12, 0.65)');
-  ghostGrad.addColorStop(0.7, 'rgba(10, 15, 20, 0.45)');
-  ghostGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = ghostGrad;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, fw * 0.75, fh * 0.9, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // Red chromatic lag channel
+    ctx.save();
+    ctx.globalAlpha = 0.36;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(delayedCanvas, -splitOffset, 0, width, height);
+    ctx.fillStyle = 'rgba(240, 45, 65, 0.22)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
-  // Delayed Hollow Eyes
-  const eyeOffsetX = fw * 0.28;
-  const eyeOffsetY = -fh * 0.12;
+    ctx.restore();
+  } else {
+    // Fallback Spectral Silhouette Echoes while buffer warms up
+    const drawDelayedSilhouette = (frame: HistoricalFrame, alpha: number, color: string, xOff: number) => {
+      const cx = frame.center.x * width + xOff;
+      const cy = frame.center.y * height;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(frame.rotationZ);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, fw * 0.75, fh * 0.88, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
 
-  ctx.fillStyle = 'rgba(2, 4, 6, 0.85)';
-  ctx.beginPath();
-  ctx.arc(-eyeOffsetX, eyeOffsetY, fw * 0.12, 0, Math.PI * 2);
-  ctx.arc(eyeOffsetX, eyeOffsetY, fw * 0.12, 0, Math.PI * 2);
-  ctx.fill();
+    drawDelayedSilhouette(delayedFrame, 0.38, 'rgba(45, 200, 230, 0.45)', reducedMotion ? 0 : 4);
+    drawDelayedSilhouette(delayedFrame, 0.32, 'rgba(230, 45, 60, 0.38)', reducedMotion ? 0 : -4);
+  }
 
-  // Delayed cold ocular glance
-  ctx.fillStyle = 'rgba(120, 200, 220, 0.6)';
-  ctx.beginPath();
-  // The ghost eyes look sideways or linger
-  const lookShift = Math.sin(timeMs * 0.003) * 2;
-  ctx.arc(-eyeOffsetX + lookShift, eyeOffsetY, 1.8, 0, Math.PI * 2);
-  ctx.arc(eyeOffsetX + lookShift, eyeOffsetY, 1.8, 0, Math.PI * 2);
-  ctx.fill();
+  // 2. Unsettling Asynchronous Gaze Disagreement
+  // The delayed reflection's eyes linger and hold direct eye contact with the viewer
+  const dlx = delayedFrame.leftEye.x * width;
+  const dly = delayedFrame.leftEye.y * height;
+  const drx = delayedFrame.rightEye.x * width;
+  const dry = delayedFrame.rightEye.y * height;
+
+  const gazeGlow = reducedMotion ? 0.4 : 0.45 + 0.25 * Math.sin(timeMs * 0.002);
+  const drawGazeEcho = (ex: number, ey: number) => {
+    ctx.fillStyle = `rgba(175, 235, 250, ${gazeGlow})`;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(0, 210, 240, ${gazeGlow * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 5.0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  drawGazeEcho(dlx, dly);
+  drawGazeEcho(drx, dry);
+
+  // 3. Subtle Desync Glitch Scanline on Lag Disagreement
+  if (!reducedMotion && Math.abs(dRot) > 0.02 && Math.random() < 0.22) {
+    const scanY = delayedFrame.center.y * height + (Math.random() - 0.5) * fh;
+    ctx.strokeStyle = 'rgba(100, 235, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(delayedFrame.center.x * width - fw * 0.7, scanY);
+    ctx.lineTo(delayedFrame.center.x * width + fw * 0.7, scanY);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// 5. THE PASSENGER (Spectrum Post Tergum)
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// 5. THE PASSENGER (Spectrum Post Tergum) - Lurking Deep Mirror Wraith
+// ----------------------------------------------------------------------
 function renderThePassenger(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -488,78 +533,75 @@ function renderThePassenger(
   timeMs: number,
   reducedMotion: boolean
 ) {
-  // Loosely reacts to user's head position, appearing over the left or right shoulder
-  const shoulderSide = metrics.center.x > 0.5 ? -1 : 1; // Opposite side of where face leans
-  const entityBaseX = (metrics.center.x + shoulderSide * 0.35) * width;
-  const entityBaseY = (metrics.center.y - 0.08) * height;
+  // Anchor entity deep behind the subject's shoulder
+  const shoulderSide = metrics.center.x > 0.5 ? -1 : 1;
+  // Parallax shift: shifts inversely to user head turn, reinforcing 3D depth behind the user
+  const parallaxX = -metrics.rotationY * 18;
+  const entityBaseX = (metrics.center.x + shoulderSide * 0.33) * width + parallaxX;
+  const entityBaseY = (metrics.center.y - 0.06) * height;
 
-  const swayX = reducedMotion ? 0 : Math.sin(timeMs * 0.0015) * 6;
-  const swayY = reducedMotion ? 0 : Math.cos(timeMs * 0.0012) * 4;
+  const swayX = reducedMotion ? 0 : Math.sin(timeMs * 0.0012) * 4;
+  const swayY = reducedMotion ? 0 : Math.cos(timeMs * 0.0009) * 3;
   const px = entityBaseX + swayX;
   const py = entityBaseY + swayY;
 
-  // Intermittent fade breath
-  const alphaBreath = reducedMotion ? 0.7 : 0.5 + 0.35 * Math.sin(timeMs * 0.002);
+  // Gentle atmospheric presence (not dominating the face)
+  const alphaBreath = reducedMotion ? 0.72 : 0.58 + 0.16 * Math.sin(timeMs * 0.0018);
 
   ctx.save();
-  ctx.translate(px, py);
 
-  // Shadow entity towering silhouette
-  const bodyGrad = ctx.createRadialGradient(0, 0, 10, 0, 40, width * 0.45);
-  bodyGrad.addColorStop(0, `rgba(0, 0, 0, ${0.9 * alphaBreath})`);
-  bodyGrad.addColorStop(0.5, `rgba(6, 4, 3, ${0.75 * alphaBreath})`);
-  bodyGrad.addColorStop(0.85, `rgba(12, 8, 6, ${0.35 * alphaBreath})`);
-  bodyGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-  ctx.fillStyle = bodyGrad;
+  // 1. Deep Shadowy Silhouette Looming Behind Shoulder
+  const shadowGrad = ctx.createRadialGradient(px, py + 15, 10, px, py + 15, width * 0.38);
+  shadowGrad.addColorStop(0, 'rgba(2, 4, 5, 0.85)');
+  shadowGrad.addColorStop(0.6, 'rgba(3, 7, 8, 0.48)');
+  shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = shadowGrad;
   ctx.beginPath();
-  // Looming cloaked head and shoulder silhouette
-  ctx.moveTo(0, -60);
-  ctx.quadraticCurveTo(45, -50, 55, 10);
-  ctx.quadraticCurveTo(85, 120, 110, 240);
-  ctx.lineTo(-110, 240);
-  ctx.quadraticCurveTo(-85, 120, -55, 10);
-  ctx.quadraticCurveTo(-45, -50, 0, -60);
-  ctx.closePath();
+  ctx.ellipse(px, py + 25, width * 0.28, height * 0.34, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Subtle piercing pale watcher eyes looking directly at user's reflection
-  const eyeAlpha = reducedMotion ? 0.75 : 0.45 + 0.4 * Math.sin(timeMs * 0.0025 + 1);
-  ctx.fillStyle = `rgba(225, 230, 210, ${eyeAlpha * alphaBreath})`;
+  // 2. High-Res Gilded Veil Wraith Asset Scaled in Deep Perspective
+  const wraithImg = getLoadedImage(ARTWORK.passengerWraith);
+  if (wraithImg) {
+    ctx.save();
+    ctx.translate(px, py);
+    const entityW = width * 0.72; // Receded depth scale
+    const entityH = (entityW * wraithImg.naturalHeight) / wraithImg.naturalWidth;
 
-  // Left & right specter eyes
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.68 * alphaBreath;
+    ctx.drawImage(wraithImg, -entityW / 2, -entityH * 0.38, entityW, entityH);
+    ctx.restore();
+  }
+
+  // 3. Piercing but Restrained Pale Cold Specter Eyes Locking from Shadows
+  const eyeAlpha = reducedMotion ? 0.85 : 0.68 + 0.22 * Math.sin(timeMs * 0.0022 + 0.5);
+  const eyeSpread = 11;
+  const eyeElevation = -18;
+
+  // Left specter eye
+  ctx.fillStyle = `rgba(225, 245, 230, ${eyeAlpha * alphaBreath})`;
   ctx.beginPath();
-  ctx.ellipse(-14, -18, 3.2, 1.8, -0.1, 0, Math.PI * 2);
-  ctx.ellipse(14, -18, 3.2, 1.8, 0.1, 0, Math.PI * 2);
+  ctx.ellipse(px - eyeSpread, py + eyeElevation, 2.8, 1.8, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(160, 220, 195, ${eyeAlpha * 0.5})`;
+  ctx.beginPath();
+  ctx.arc(px - eyeSpread, py + eyeElevation, 4.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Soft faint eye glow
-  const glow = ctx.createRadialGradient(0, -18, 2, 0, -18, 24);
-  glow.addColorStop(0, `rgba(180, 200, 170, ${0.35 * alphaBreath})`);
-  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = glow;
+  // Right specter eye
+  ctx.fillStyle = `rgba(225, 245, 230, ${eyeAlpha * alphaBreath})`;
   ctx.beginPath();
-  ctx.arc(0, -18, 24, 0, Math.PI * 2);
+  ctx.ellipse(px + eyeSpread, py + eyeElevation, 2.8, 1.8, 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(160, 220, 195, ${eyeAlpha * 0.5})`;
+  ctx.beginPath();
+  ctx.arc(px + eyeSpread, py + eyeElevation, 4.5, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
-
-  // Subtle cold desaturation on user's own face
-  const cx = metrics.center.x * width;
-  const cy = metrics.center.y * height;
-  const fw = Math.max(metrics.faceWidth * width, 60);
-  const fh = Math.max(metrics.faceHeight * height, 80);
-
-  const chillGrad = ctx.createRadialGradient(cx, cy, fw * 0.2, cx, cy, fw * 0.8);
-  chillGrad.addColorStop(0, 'rgba(8, 12, 10, 0.25)');
-  chillGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = chillGrad;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, fw * 0.8, fh * 0.9, metrics.rotationZ, 0, Math.PI * 2);
-  ctx.fill();
 }
 
-// Fallback ambient passenger when face not detected
 function renderAmbientPassenger(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -567,16 +609,62 @@ function renderAmbientPassenger(
   timeMs: number,
   reducedMotion: boolean
 ) {
-  const alpha = reducedMotion ? 0.35 : 0.25 + 0.15 * Math.sin(timeMs * 0.001);
-  ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+  const alpha = reducedMotion ? 0.45 : 0.3 + 0.18 * Math.sin(timeMs * 0.001);
+  ctx.fillStyle = `rgba(2, 4, 5, ${alpha})`;
   ctx.beginPath();
-  ctx.ellipse(width * 0.8, height * 0.35, width * 0.3, height * 0.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(width * 0.8, height * 0.35, width * 0.32, height * 0.42, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// AGED GLASS OVERLAY - Subtle Edge Patina & Clear Center Reflection
+// ----------------------------------------------------------------------
+export function renderAgedGlassOverlay(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  timeMs: number,
+  reducedMotion: boolean
+) {
+  ctx.save();
+
+  // 1. Production Cracked Mirror Patina Asset (Restrained so center remains crystal clear)
+  const crackedImg = getLoadedImage(ARTWORK.crackedOverlay);
+  if (crackedImg) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.15;
+    ctx.drawImage(crackedImg, 0, 0, width, height);
+    ctx.restore();
+  }
+
+  // 2. Deep Edge Vignette - Frames the mirror naturally without washing out the center
+  const vigGrad = ctx.createRadialGradient(
+    width * 0.5,
+    height * 0.46,
+    width * 0.36,
+    width * 0.5,
+    height * 0.46,
+    width * 0.78
+  );
+  vigGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vigGrad.addColorStop(0.68, 'rgba(3, 4, 3, 0.2)');
+  vigGrad.addColorStop(0.88, 'rgba(2, 3, 2, 0.58)');
+  vigGrad.addColorStop(1, 'rgba(1, 2, 1, 0.92)');
+  ctx.fillStyle = vigGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  // 3. Subtle Antique Mirror Bevel Rim
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, width, height);
+
+  ctx.restore();
+}
+
+// ----------------------------------------------------------------------
 // PARANORMAL AUTONOMOUS EVENTS
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
 function renderParanormalEffect(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -587,31 +675,28 @@ function renderParanormalEffect(
   reducedMotion: boolean
 ) {
   const progress = Math.min((timeMs - paranormal.startTime) / paranormal.durationMs, 1.0);
-  const envelope = Math.sin(progress * Math.PI); // 0 -> 1 -> 0
+  const envelope = Math.sin(progress * Math.PI);
 
   switch (paranormal.activeEvent) {
     case 'peripheral_face': {
-      // Pale face silhouette peeking from mirror edge for ~500ms
       const side = paranormal.variant > 0.5 ? width * 0.08 : width * 0.92;
-      const peekY = height * (0.3 + paranormal.variant * 0.4);
-      const peekAlpha = envelope * 0.65;
+      const peekY = height * (0.32 + paranormal.variant * 0.36);
+      const peekAlpha = envelope * 0.8;
 
-      ctx.fillStyle = `rgba(5, 8, 10, ${peekAlpha})`;
+      ctx.fillStyle = `rgba(3, 6, 7, ${peekAlpha})`;
       ctx.beginPath();
-      ctx.ellipse(side, peekY, 35, 50, 0, 0, Math.PI * 2);
+      ctx.ellipse(side, peekY, 34, 48, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Pale eyes watching
-      ctx.fillStyle = `rgba(200, 215, 205, ${peekAlpha * 0.9})`;
+      ctx.fillStyle = `rgba(220, 235, 225, ${peekAlpha * 0.95})`;
       ctx.beginPath();
-      ctx.arc(side - 8, peekY - 8, 2, 0, Math.PI * 2);
-      ctx.arc(side + 8, peekY - 8, 2, 0, Math.PI * 2);
+      ctx.arc(side - 7, peekY - 7, 2.0, 0, Math.PI * 2);
+      ctx.arc(side + 7, peekY - 7, 2.0, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
 
     case 'black_frame': {
-      // Brief eclipse/blink into complete mirror darkness for ~150ms
       const darkAlpha = envelope * 0.96;
       ctx.fillStyle = `rgba(0, 0, 0, ${darkAlpha})`;
       ctx.fillRect(0, 0, width, height);
@@ -619,13 +704,12 @@ function renderParanormalEffect(
     }
 
     case 'wrong_eyes': {
-      // Uncanny divergence: eyes gaze straight at viewer while head turned
       if (metrics.detected) {
         const lx = metrics.leftEye.x * width;
         const ly = metrics.leftEye.y * height;
         const rx = metrics.rightEye.x * width;
         const ry = metrics.rightEye.y * height;
-        const alpha = envelope * 0.85;
+        const alpha = envelope * 0.9;
 
         ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
         ctx.beginPath();
@@ -633,36 +717,29 @@ function renderParanormalEffect(
         ctx.arc(rx, ry, 12, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = `rgba(220, 235, 230, ${alpha})`;
+        ctx.fillStyle = `rgba(235, 250, 240, ${alpha})`;
         ctx.beginPath();
-        ctx.arc(lx, ly, 2.2, 0, Math.PI * 2);
-        ctx.arc(rx, ry, 2.2, 0, Math.PI * 2);
+        ctx.arc(lx, ly, 2.4, 0, Math.PI * 2);
+        ctx.arc(rx, ry, 2.4, 0, Math.PI * 2);
         ctx.fill();
       }
       break;
     }
 
     case 'glass_pulse': {
-      // Occult hairline fractures and sigils pulse with cold phosphorus light
-      const pulseAlpha = envelope * 0.55;
-      ctx.strokeStyle = `rgba(160, 220, 195, ${pulseAlpha})`;
+      const pulseAlpha = envelope * 0.6;
+      ctx.strokeStyle = `rgba(170, 235, 210, ${pulseAlpha})`;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      // Diagonal hairline fractures
-      ctx.moveTo(width * 0.1, 0);
+      ctx.moveTo(width * 0.12, 0);
       ctx.lineTo(width * 0.35, height * 0.4);
       ctx.lineTo(width * 0.3, height * 0.65);
-      ctx.lineTo(width * 0.55, height);
-
-      ctx.moveTo(width * 0.9, height * 0.2);
-      ctx.lineTo(width * 0.7, height * 0.55);
-      ctx.lineTo(width * 0.78, height * 0.85);
+      ctx.lineTo(width * 0.52, height);
       ctx.stroke();
       break;
     }
 
     case 'reflection_lag': {
-      // Handled in canvas video blit layer
       break;
     }
   }

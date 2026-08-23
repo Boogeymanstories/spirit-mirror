@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CameraStatus, FaceMetrics, Manifestation, ManifestationId, ParanormalState } from '../types';
+import { CameraStatus, FaceMetrics, Manifestation, ParanormalState } from '../types';
 import { getFaceLandmarker, processVideoFrame, releaseFaceLandmarker } from '../services/faceTracker';
-import { renderManifestationOverlay } from '../rendering/manifestationRenderers';
+import { renderManifestationOverlay, renderAgedGlassOverlay } from '../rendering/manifestationRenderers';
 import { ParanormalScheduler } from '../services/paranormalScheduler';
 import { FaceLandmarker } from '@mediapipe/tasks-vision';
+import { PowerOff, ShieldCheck } from 'lucide-react';
+import { ARTWORK } from '../assets/artwork';
 
 interface AgedGlassProps {
   status: CameraStatus;
@@ -11,6 +13,10 @@ interface AgedGlassProps {
   currentManifestation: Manifestation;
   isTransitioning: boolean;
   reducedMotion: boolean;
+  onAwaken: () => void;
+  onSummonNext: () => void;
+  onClose: () => void;
+  onToggleReducedMotion: () => void;
 }
 
 export const AgedGlass: React.FC<AgedGlassProps> = ({
@@ -19,12 +25,20 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
   currentManifestation,
   isTransitioning,
   reducedMotion,
+  onAwaken,
+  onSummonNext,
+  onClose,
+  onToggleReducedMotion,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const paranormalSchedulerRef = useRef<ParanormalScheduler | null>(null);
+
+  // Offscreen canvas frame buffer for Doppelgänger temporal reflection anomaly
+  const delayedBufferRef = useRef<HTMLCanvasElement[]>([]);
+  const bufferIndexRef = useRef<number>(0);
 
   const [faceDetected, setFaceDetected] = useState(false);
   const [paranormalState, setParanormalState] = useState<ParanormalState>({
@@ -34,6 +48,10 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
     startTime: 0,
     durationMs: 0,
   });
+
+  const isAwakened = status === 'active';
+  const isInitializing =
+    status === 'requesting_permission' || status === 'initializing_model';
 
   // Attach MediaStream to hidden video element
   useEffect(() => {
@@ -73,7 +91,16 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
 
     let isSubscribed = true;
 
-    // Load Face Landmarker lazily on camera active
+    // Initialize rolling delayed canvas ring buffer (16 frames for richer temporal anomalies)
+    if (delayedBufferRef.current.length === 0) {
+      for (let i = 0; i < 16; i++) {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 320;
+        offCanvas.height = 480;
+        delayedBufferRef.current.push(offCanvas);
+      }
+    }
+
     getFaceLandmarker().then((landmarker) => {
       if (isSubscribed) {
         landmarkerRef.current = landmarker;
@@ -99,13 +126,11 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
             setFaceDetected(metrics.detected);
           }
 
-          // 2. Draw Mirrored Live Video Feed to Canvas
+          // 2. Draw Mirrored Live Video Feed to Canvas (Crisp & Natural)
           ctx.save();
-          // Horizontal flip for true mirror reflection
           ctx.translate(width, 0);
           ctx.scale(-1, 1);
 
-          // Video aspect ratio cover calculation
           const vWidth = video.videoWidth || 640;
           const vHeight = video.videoHeight || 480;
           const scale = Math.max(width / vWidth, height / vHeight);
@@ -117,35 +142,21 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
           ctx.drawImage(video, drawX, drawY, drawW, drawH);
           ctx.restore();
 
-          // 3. Aged Glass Color & Chemical Toning Filter
-          ctx.save();
-          // Slight antique cold desaturation & vintage silver tint
-          ctx.fillStyle = 'rgba(12, 18, 15, 0.18)';
-          ctx.fillRect(0, 0, width, height);
-
-          // Subtle antique greenish-amber cast in the highlights
-          const tintGrad = ctx.createLinearGradient(0, 0, 0, height);
-          tintGrad.addColorStop(0, 'rgba(18, 22, 16, 0.08)');
-          tintGrad.addColorStop(1, 'rgba(10, 14, 18, 0.16)');
-          ctx.fillStyle = tintGrad;
-          ctx.fillRect(0, 0, width, height);
-
-          // Deep edge vignette around the mirror boundary
-          const vigGrad = ctx.createRadialGradient(
-            width * 0.5,
-            height * 0.48,
-            width * 0.35,
-            width * 0.5,
-            height * 0.48,
-            width * 0.75
-          );
-          vigGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-          vigGrad.addColorStop(0.65, 'rgba(5, 7, 6, 0.45)');
-          vigGrad.addColorStop(1, 'rgba(2, 3, 2, 0.92)');
-          ctx.fillStyle = vigGrad;
-          ctx.fillRect(0, 0, width, height);
-
-          ctx.restore();
+          // 3. Update rolling delayed frame buffer for Doppelgänger
+          let delayedCanvas: HTMLCanvasElement | null = null;
+          if (delayedBufferRef.current.length > 0) {
+            const bufLen = delayedBufferRef.current.length;
+            const currentIdx = bufferIndexRef.current;
+            const writeCanvas = delayedBufferRef.current[currentIdx];
+            const writeCtx = writeCanvas.getContext('2d');
+            if (writeCtx) {
+              writeCtx.drawImage(canvas, 0, 0, width, height);
+            }
+            // Read from 4-6 frames in the past
+            const readIdx = (currentIdx + bufLen / 2) % bufLen;
+            delayedCanvas = delayedBufferRef.current[Math.floor(readIdx)];
+            bufferIndexRef.current = (currentIdx + 1) % bufLen;
+          }
 
           // 4. Render Face-Attached Supernatural Manifestation
           if (metrics) {
@@ -157,7 +168,8 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
               currentManifestation.id,
               paranormalState,
               time,
-              reducedMotion
+              reducedMotion,
+              delayedCanvas
             );
           }
 
@@ -166,8 +178,8 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
             renderSummoningDistortion(ctx, width, height, time, reducedMotion);
           }
 
-          // 6. Aged Glass Surface Grime, Micro-Scratches & Hairline Fractures
-          renderGlassScratches(ctx, width, height);
+          // 6. High-Resolution Aged Glass Patina Texture Layer (Clean center, edge cracks)
+          renderAgedGlassOverlay(ctx, width, height, time, reducedMotion);
         }
       }
 
@@ -185,7 +197,7 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
     };
   }, [status, currentManifestation, isTransitioning, paranormalState, reducedMotion]);
 
-  // Clean up FaceLandmarker when component unmounts
+  // Clean up FaceLandmarker on unmount
   useEffect(() => {
     return () => {
       releaseFaceLandmarker();
@@ -193,7 +205,7 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
   }, []);
 
   return (
-    <div className="relative w-full aspect-[9/13] max-h-[440px] bg-[#050504] overflow-hidden select-none flex items-center justify-center">
+    <div className="relative w-full aspect-[9/13.5] max-h-[460px] bg-[#050403] overflow-hidden select-none flex items-center justify-center">
       {/* Hidden processing video element */}
       <video
         ref={videoRef}
@@ -208,154 +220,199 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
       <canvas
         ref={canvasRef}
         width={320}
-        height={460}
+        height={480}
         className={`w-full h-full object-cover transition-opacity duration-700 ${
           status === 'active' ? 'opacity-100' : 'opacity-0'
         } ${isTransitioning && !reducedMotion ? 'summoning-transition' : ''}`}
       />
 
-      {/* UN-AWAKENED INITIAL STATE OVERLAY */}
-      {status !== 'active' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-between p-6 bg-gradient-to-b from-[#090706] via-[#050403] to-[#0a0807] text-center z-10">
-          {/* Subtle occult background rune watermark */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-            <svg
-              viewBox="0 0 200 200"
-              className="w-48 h-48 text-[#c4af85] animate-ethereal"
-            >
-              <circle
-                cx="100"
-                cy="100"
-                r="80"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeDasharray="4 6"
-              />
-              <polygon
-                points="100,25 165,138 35,138"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <polygon
-                points="100,175 35,62 165,62"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-              <circle
-                cx="100"
-                cy="100"
-                r="35"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="0.75"
-              />
-            </svg>
+      {/* ==================================================== */}
+      {/* INITIAL DORMANT STATE (HIGH-RES CRACKED GLASS PATINA) */}
+      {/* ==================================================== */}
+      {!isAwakened && (
+        <div className="absolute inset-0 flex flex-col items-center justify-between p-5 text-center z-15 overflow-hidden">
+          
+          {/* Layer 1: High-Resolution Cracked Mirror Overlay Texture */}
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <img
+              src={ARTWORK.crackedOverlay}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover filter contrast-125 brightness-75 opacity-60"
+            />
+            {/* Atmospheric dark gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#080503]/90 via-[#030202]/85 to-[#070402]/92 mix-blend-multiply" />
           </div>
 
-          {/* Top Title Bar */}
-          <div className="flex flex-col items-center gap-1 mt-3">
-            <span className="text-[10px] font-cinzel tracking-[0.3em] uppercase text-[#73634e]">
-              ARTIFACT NO. 1894
-            </span>
-            <h2 className="text-xl font-cinzel-dec font-extrabold text-[#e2d5be] tracking-[0.18em] uppercase engraved-text">
-              MIRROR MASK
+          {/* Top Inscription: "THE GLASS IS WAITING" */}
+          <div className="flex flex-col items-center gap-1 mt-6 relative z-10">
+            <h2 className="text-[22px] sm:text-[24px] font-cinzel font-normal text-[#efe3cb] tracking-[0.24em] uppercase engraved-silver">
+              THE GLASS
             </h2>
-            <div className="w-12 h-px bg-gradient-to-r from-transparent via-[#8a6e4b] to-transparent my-1" />
+            <h3 className="text-[17px] sm:text-[19px] font-cinzel font-normal text-[#d6c8b4] tracking-[0.28em] uppercase engraved-silver -mt-1">
+              IS WAITING
+            </h3>
           </div>
 
-          {/* Central Atmospheric Message */}
-          <div className="flex flex-col items-center gap-2 my-auto max-w-[220px]">
-            <div className="text-[14px] font-cinzel text-[#d9ccb2] tracking-[0.16em] uppercase font-bold engraved-text">
-              THE GLASS IS WAITING
+          {/* Central Cartouche Plaque Button: AWAKEN MIRROR */}
+          <div className="w-full max-w-[240px] my-auto flex flex-col items-center gap-4 relative z-20">
+            <button
+              type="button"
+              disabled={isInitializing}
+              onClick={onAwaken}
+              className={`relative group w-full h-[48px] rounded-sm overflow-hidden border border-[#8c6b41] shadow-[0_6px_20px_rgba(0,0,0,0.95),0_0_12px_rgba(212,175,55,0.25)] transition-all duration-300 transform active:scale-98 hover:border-[#d4af37] focus:outline-none focus:ring-1 focus:ring-[#d4af37] ${
+                isInitializing ? 'opacity-70 cursor-wait' : 'cursor-pointer hover:shadow-[0_8px_25px_rgba(0,0,0,0.98),0_0_20px_rgba(212,175,55,0.45)]'
+              }`}
+            >
+              {/* High-Resolution Brass Cartouche Plaque Asset */}
+              <img
+                src={ARTWORK.brassPlaque}
+                alt="AWAKEN MIRROR"
+                referrerPolicy="no-referrer"
+                className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-95 group-hover:brightness-110 transition-all duration-300"
+              />
+
+              {/* Plaque Text Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <span className="font-cinzel text-[13px] tracking-[0.24em] font-bold text-[#fcf5e6] filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
+                  AWAKEN MIRROR
+                </span>
+              </div>
+
+              {/* Shimmering Glint on Hover */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+
+              {/* Loading Spinner during permission/model init */}
+              {isInitializing && (
+                <div className="absolute inset-0 bg-[#120c08]/90 z-20 flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+                  <span className="font-cinzel text-[10.5px] tracking-[0.22em] uppercase font-bold text-[#e8ded0]">
+                    AWAKENING...
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Bottom Inscription: "YOUR REFLECTION NEVER LEAVES THE GLASS" */}
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] font-cinzel tracking-[0.22em] uppercase text-[#a3907a] text-center font-semibold">
+                YOUR REFLECTION
+              </span>
+              <span className="text-[8.5px] font-cinzel tracking-[0.2em] uppercase text-[#82725e] text-center">
+                NEVER LEAVES THE GLASS
+              </span>
+              <div className="text-[10px] text-[#8c7457] tracking-[0.3em] mt-0.5">
+                ✦ ✣ ✦
+              </div>
             </div>
-            <p className="text-[12px] font-spectral italic text-[#8c7a65] leading-snug">
-              Look into the antique silvering to awaken the entities dormant within your reflection.
-            </p>
-          </div>
-
-          {/* Bottom subtle instruction */}
-          <div className="text-[10px] font-cinzel text-[#5a4c3c] tracking-[0.14em] uppercase">
-            COMMUNION OCCURS LOCALLY IN BROWSER
           </div>
         </div>
       )}
 
-      {/* ACTIVE MIRROR ATMOSPHERIC HUD */}
-      {status === 'active' && (
-        <div className="absolute top-2.5 inset-x-3 flex items-center justify-between pointer-events-none z-15">
-          {/* Manifestation Name Plate */}
-          <div className="px-2.5 py-1 rounded bg-[#0a0806]/80 border border-[#3b2d20]/80 shadow-md backdrop-blur-xs flex flex-col">
-            <span className="text-[8px] font-cinzel tracking-[0.2em] uppercase text-[#8a7760]">
-              {currentManifestation.latinName}
-            </span>
-            <span className="text-[11px] font-cinzel-dec font-bold text-[#e6d8be] tracking-[0.14em] uppercase engraved-text">
-              {currentManifestation.name}
-            </span>
+      {/* ==================================================== */}
+      {/* ACTIVE MIRROR STATE HUD & IN-GLASS CARTOUCHE BUTTON  */}
+      {/* ==================================================== */}
+      {isAwakened && (
+        <>
+          {/* Top Ambient HUD: Manifestation Latin Name & Tracking Status */}
+          <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none z-20">
+            {/* Manifestation Name Cartouche */}
+            <div className="px-2.5 py-1 rounded bg-[#0b0805]/90 border border-[#4a3620] shadow-[0_4px_12px_rgba(0,0,0,0.9)] backdrop-blur-xs flex flex-col">
+              <span className="text-[7.5px] font-cinzel tracking-[0.22em] uppercase text-[#9e886f]">
+                {currentManifestation.latinName}
+              </span>
+              <span className="text-[10.5px] font-cinzel font-bold text-[#efe3cb] tracking-[0.14em] uppercase engraved-text">
+                {currentManifestation.name}
+              </span>
+            </div>
+
+            {/* Subtle Ocular Tracking Indicator */}
+            <div
+              className={`px-2 py-0.5 rounded text-[8px] font-cinzel tracking-wider uppercase border flex items-center gap-1.5 transition-colors duration-300 ${
+                faceDetected
+                  ? 'bg-[#09140c]/90 border-[#2b4c36] text-[#a4dcb8]'
+                  : 'bg-[#170e07]/90 border-[#472f1b] text-[#c9a378]'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  faceDetected
+                    ? 'bg-[#4ade80] shadow-[0_0_6px_#4ade80]'
+                    : 'bg-[#f59e0b] animate-ping'
+                }`}
+              />
+              <span>{faceDetected ? 'BOUND' : 'SEEKING'}</span>
+            </div>
           </div>
 
-          {/* Face Detection Status Indicator */}
-          <div
-            className={`px-2 py-0.5 rounded text-[9px] font-cinzel tracking-wider uppercase border flex items-center gap-1.5 transition-colors duration-300 ${
-              faceDetected
-                ? 'bg-[#0f1712]/80 border-[#2a4d3b] text-[#93c7a8]'
-                : 'bg-[#1a120c]/80 border-[#4a3520] text-[#a88d6c]'
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                faceDetected
-                  ? 'bg-[#4ade80] shadow-[0_0_5px_#4ade80]'
-                  : 'bg-[#eab308] animate-ping'
+          {/* Central Lower Cartouche Plaque Button: SUMMON ANOTHER */}
+          <div className="absolute bottom-4 inset-x-4 flex flex-col items-center gap-2 z-25">
+            <button
+              type="button"
+              disabled={isTransitioning}
+              onClick={onSummonNext}
+              className={`relative group w-full max-w-[220px] h-[46px] rounded-sm overflow-hidden border border-[#8c6b41] shadow-[0_6px_20px_rgba(0,0,0,0.95),0_0_12px_rgba(212,175,55,0.25)] transition-all duration-200 transform active:scale-98 hover:border-[#d4af37] focus:outline-none focus:ring-1 focus:ring-[#d4af37] ${
+                isTransitioning ? 'opacity-75 cursor-wait' : 'cursor-pointer hover:shadow-[0_8px_25px_rgba(0,0,0,0.98),0_0_18px_rgba(212,175,55,0.4)]'
               }`}
-            />
-            <span>{faceDetected ? 'BOUND' : 'SEEKING'}</span>
+            >
+              {/* High-Resolution Brass Cartouche Plaque Asset */}
+              <img
+                src={ARTWORK.brassPlaque}
+                alt="SUMMON ANOTHER"
+                referrerPolicy="no-referrer"
+                className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-95 group-hover:brightness-110 transition-all duration-200"
+              />
+
+              {/* Plaque Text Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <span className="font-cinzel text-[11.5px] tracking-[0.22em] font-bold text-[#fcf5e6] filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
+                  SUMMON ANOTHER
+                </span>
+              </div>
+
+              {/* Shimmering Glint */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+
+              {isTransitioning && (
+                <div className="absolute inset-0 bg-[#140c07]/90 z-20 flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+                  <span className="font-cinzel text-[10.5px] tracking-[0.2em] uppercase font-bold text-[#e8ded0]">
+                    COMMUNING...
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Discreet Secondary Latch Bar (Tremor Toggle & Rest) */}
+            <div className="flex items-center justify-between w-full max-w-[220px] px-1 text-[8.5px] font-cinzel tracking-wider uppercase">
+              <button
+                type="button"
+                onClick={onToggleReducedMotion}
+                title="Toggle stabilized spectral motion"
+                className="text-[#877562] hover:text-[#c4b3a0] flex items-center gap-1 transition-colors focus:outline-none"
+              >
+                <ShieldCheck className="w-2.5 h-2.5" />
+                <span>{reducedMotion ? 'STABILIZED' : 'TREMOR'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                title="Close the mirror"
+                className="text-[#965e5e] hover:text-[#d68585] flex items-center gap-1 transition-colors focus:outline-none"
+              >
+                <PowerOff className="w-2.5 h-2.5" />
+                <span>REST MIRROR</span>
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
 
-// Procedural Glass Hairline Scratches & Cracks
-function renderGlassScratches(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number
-) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-  ctx.lineWidth = 0.75;
-  ctx.beginPath();
-
-  // Scratch 1 (top right corner)
-  ctx.moveTo(width * 0.85, height * 0.05);
-  ctx.lineTo(width * 0.78, height * 0.14);
-  ctx.lineTo(width * 0.81, height * 0.22);
-
-  // Scratch 2 (bottom left corner)
-  ctx.moveTo(width * 0.08, height * 0.88);
-  ctx.lineTo(width * 0.18, height * 0.82);
-
-  // Corner hairline fracture
-  ctx.moveTo(width * 0.95, height * 0.9);
-  ctx.lineTo(width * 0.88, height * 0.94);
-
-  ctx.stroke();
-
-  // Edge grime & specks
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
-  ctx.fillRect(0, 0, width, 4);
-  ctx.fillRect(0, height - 4, width, 4);
-  ctx.fillRect(0, 0, 4, height);
-  ctx.fillRect(width - 4, 0, 4, height);
-
-  ctx.restore();
-}
-
-// Summoning transition glitch & distortion burst
+// Summoning transition ritual distortion flash
 function renderSummoningDistortion(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -366,16 +423,14 @@ function renderSummoningDistortion(
   if (reducedMotion) return;
 
   ctx.save();
-  // Spectral burst flash
-  const flashAlpha = 0.25 + 0.2 * Math.sin(timeMs * 0.02);
-  ctx.fillStyle = `rgba(212, 175, 55, ${flashAlpha * 0.4})`;
+  const flashAlpha = 0.25 + 0.2 * Math.sin(timeMs * 0.03);
+  ctx.fillStyle = `rgba(212, 175, 55, ${flashAlpha * 0.45})`;
   ctx.fillRect(0, 0, width, height);
 
-  // Scanline distortion bars
   ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-  for (let i = 0; i < height; i += 8) {
-    if (Math.sin(i + timeMs * 0.01) > 0.5) {
-      ctx.fillRect(0, i, width, 3);
+  for (let i = 0; i < height; i += 7) {
+    if (Math.sin(i + timeMs * 0.015) > 0.4) {
+      ctx.fillRect(0, i, width, 2.5);
     }
   }
   ctx.restore();

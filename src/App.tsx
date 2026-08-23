@@ -5,8 +5,6 @@ import { requestUserCamera, stopUserCamera } from './services/cameraService';
 import { HauntedFrame } from './components/HauntedFrame';
 import { AgedGlass } from './components/AgedGlass';
 import { DiscoveryGlyphs } from './components/DiscoveryGlyphs';
-import { OccultControls } from './components/OccultControls';
-import { PrivacyNotice } from './components/PrivacyNotice';
 import { ErrorScreen } from './components/ErrorScreen';
 
 export default function App() {
@@ -55,7 +53,7 @@ export default function App() {
 
     setIsTransitioning(true);
 
-    // Occult transition duration ~600ms
+    // Occult transition duration ~550ms
     setTimeout(() => {
       setCurrentIndex((prev) => {
         const nextIdx = (prev + 1) % MANIFESTATION_ORDER.length;
@@ -104,7 +102,7 @@ export default function App() {
 
   return (
     <main
-      className="w-full min-h-screen bg-[#070605] flex flex-col items-center justify-center p-2 sm:p-4 text-[#c4b998] select-none"
+      className="w-full min-h-screen bg-[#060504] flex flex-col items-center justify-center p-2 sm:p-4 text-[#c4b998] select-none"
       id="mirror-mask-app"
     >
       <HauntedFrame>
@@ -116,9 +114,13 @@ export default function App() {
             currentManifestation={currentManifestation}
             isTransitioning={isTransitioning}
             reducedMotion={reducedMotion}
+            onAwaken={handleAwaken}
+            onSummonNext={handleSummonNext}
+            onClose={handleClose}
+            onToggleReducedMotion={() => setReducedMotion((prev) => !prev)}
           />
 
-          {/* Designed Gothic Error Overlay */}
+          {/* Gothic Error Overlay */}
           {isErrorState && (
             <ErrorScreen
               status={status}
@@ -129,28 +131,13 @@ export default function App() {
           )}
         </div>
 
-        {/* Discovery Glyphs Bar */}
+        {/* Discovery Glyphs Plinth Bar */}
         <DiscoveryGlyphs
           discovered={discovered}
           currentId={currentManifestationId}
           onSelectManifestation={handleSelectManifestation}
           isAwakened={status === 'active'}
         />
-
-        {/* Occult In-World Action Controls */}
-        <OccultControls
-          status={status}
-          currentManifestation={status === 'active' ? currentManifestation : null}
-          onAwaken={handleAwaken}
-          onSummonNext={handleSummonNext}
-          onClose={handleClose}
-          isTransitioning={isTransitioning}
-          reducedMotion={reducedMotion}
-          onToggleReducedMotion={() => setReducedMotion((prev) => !prev)}
-        />
-
-        {/* Privacy Assurance Microcopy */}
-        <PrivacyNotice />
       </HauntedFrame>
     </main>
   );
