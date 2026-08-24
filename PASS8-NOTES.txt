@@ -1,0 +1,21 @@
+MIRROR MASK — PASS 8
+
+Focus: camera switching and active-mirror UX.
+
+Pass 7 fit is intentionally frozen.
+
+Changes:
+- Front/rear camera state with the selfie camera as the default.
+- FLIP CAMERA control appears when more than one video input is available.
+- Front camera remains mirrored; rear camera is rendered normally.
+- MediaPipe landmark orientation follows the displayed camera orientation.
+- Safe camera handoff stops the previous stream before opening the next lens.
+- Failed camera flips automatically attempt to restore the previous working camera.
+- Face-tracking smoothing state resets on camera changes to prevent mask glide/jumps.
+- In-world TURNING THE GLASS... camera transition overlay.
+- RANDOM MASK action chooses a different mask while preserving the ritual transition.
+- Current mask selection is preserved across camera changes.
+- Neighboring mask assets are proactively preloaded around the current selection.
+- Reduced-motion behavior, Pass 7 jaw/chin fit, and half-mask geometry remain unchanged.
+
+Deploy with the existing reusable deploy-spirit-mirror.ps1 script.

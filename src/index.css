@@ -192,3 +192,11 @@
     transition: none !important;
   }
 }
+
+/* 20-mask horizontal selector: native swipe on phones, no visible scrollbar. */
+.mask-strip-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mask-strip-scroll::-webkit-scrollbar { display: none; }

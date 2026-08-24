@@ -2,19 +2,36 @@ export type ManifestationId =
   | 'hollow'
   | 'veiled_one'
   | 'grinning_guest'
-  | 'doppelganger'
-  | 'passenger';
+  | 'bone_saint'
+  | 'thorn_crown'
+  | 'moss_crowned_swamp_demon'
+  | 'plague_baron'
+  | 'wax_prophet'
+  | 'raven_priest'
+  | 'ashen_king'
+  | 'drowned_mariner'
+  | 'porcelain_widow'
+  | 'starborn_entity'
+  | 'scarecrow_king'
+  | 'crypt_hound'
+  | 'vampire_magistrate'
+  | 'lantern_witch'
+  | 'hive_matriarch'
+  | 'shadow_jackal'
+  | 'ragged_specter';
 
 export interface Manifestation {
   id: ManifestationId;
   name: string;
   latinName: string;
   tagline: string;
-  glyph: string; // SVG path or symbol
+  glyph: string;
   glyphTitle: string;
   lore: string;
   accentColor: string;
 }
+
+export type CameraFacing = 'user' | 'environment';
 
 export type CameraStatus =
   | 'idle'
@@ -26,25 +43,25 @@ export type CameraStatus =
   | 'unsupported'
   | 'error';
 
-export interface Point2D {
-  x: number;
-  y: number;
-}
+export interface Point2D { x: number; y: number; }
+export interface Point3D { x: number; y: number; z: number; }
 
-export interface Point3D {
-  x: number;
-  y: number;
-  z: number;
+export interface FaceExpressions {
+  jawOpen: number;
+  mouthSmile: number;
+  mouthWidth: number;
+  eyeBlinkLeft: number;
+  eyeBlinkRight: number;
+  browRaise: number;
 }
 
 export interface FaceMetrics {
   detected: boolean;
-  // Normalized 0..1 in canvas space (with horizontal mirroring accounted for)
   center: Point2D;
-  scale: number; // proportional to face width/interocular distance
-  rotationZ: number; // roll in radians
-  rotationY: number; // yaw in radians
-  rotationX: number; // pitch in radians
+  scale: number;
+  rotationZ: number;
+  rotationY: number;
+  rotationX: number;
   leftEye: Point2D;
   rightEye: Point2D;
   noseTip: Point2D;
@@ -59,7 +76,7 @@ export interface FaceMetrics {
   rightCheek: Point2D;
   faceWidth: number;
   faceHeight: number;
-  // Raw landmarks array (478 points) for fine-grained drawing
+  expressions: FaceExpressions;
   landmarks: Point3D[];
   timestamp: number;
 }
@@ -74,7 +91,7 @@ export type ParanormalEventType =
 export interface ParanormalState {
   activeEvent: ParanormalEventType | null;
   intensity: number;
-  variant: number; // 0..1 random seed for event specifics
+  variant: number;
   startTime: number;
   durationMs: number;
 }

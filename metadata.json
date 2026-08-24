@@ -1,6 +1,8 @@
 {
   "name": "Mirror Mask",
   "description": "Interactive haunted mirror widget with real-time client-side face-tracked paranormal manifestations for Boogeyman Stories.",
-  "requestFramePermissions": ["camera"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
 }

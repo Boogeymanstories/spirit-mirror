@@ -1,0 +1,32 @@
+SPIRIT MIRROR — PASS 9: REACTIVE LENS ENGINE v1
+
+Built on Pass 8 with Pass 7 face/jaw geometry preserved as the neutral baseline.
+
+NEW IN PASS 9
+- MediaPipe face blendshapes enabled for expression tracking.
+- New smoothed FaceExpressions model:
+  jawOpen, mouthSmile, mouthWidth, eyeBlinkLeft, eyeBlinkRight, browRaise.
+- Reusable Lens Engine with back/front reactive layers.
+- Five showcase reactive masks:
+  1. The Hollow
+  2. The Grinning Guest
+  3. The Wax Prophet
+  4. The Moss-Crowned Swamp Demon
+  5. The Ashen King
+- Blink-reactive eye/socket effects.
+- Jaw/mouth-reactive lower-mask motion and mouth effects.
+- Mask-specific ambient pulses.
+- Lightweight mobile-safe particles:
+  candle wisps, swamp spores, ember sparks.
+- Stable Reflection / reduced-motion mode suppresses motion-heavy reactive effects.
+- Front/rear camera switching from Pass 8 retained.
+- Pass 7 neutral jaw/chin fit retained; Lens Engine deformation only activates from expressions.
+
+TEST FIRST
+- Hollow: blink several times and open/close mouth.
+- Grinning Guest: open mouth, smile, then close mouth.
+- Wax Prophet: watch crown area and open mouth.
+- Swamp Demon: watch green pulse/spores and blink.
+- Ashen King: watch ember sparks/glow and open mouth.
+
+Then verify a non-reactive mask (for example Veiled One) still behaves exactly like the previous pass.

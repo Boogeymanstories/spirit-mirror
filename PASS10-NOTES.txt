@@ -1,0 +1,24 @@
+SPIRIT MIRROR — PASS 10: HAUNTED PORTRAIT
+
+Built directly on Pass 9. Face/jaw fit, front/rear camera handling, and the Reactive Lens Engine remain intact.
+
+NEW IN PASS 10
+- CAPTURE PORTRAIT control in the active mirror.
+- Toggleable 3-second occult countdown or instant capture mode.
+- High-resolution 1080 x 1620 portrait renderer using the live camera frame, current fitted mask, reactive Lens Engine state, and aged-glass treatment.
+- Capture uses the already-smoothed tracked face state at shutter time rather than re-running MediaPipe during export.
+- Correct selfie mirroring and rear-camera orientation are preserved in exported portraits.
+- Shutter/glass flash feedback after capture.
+- In-world Haunted Portrait preview screen.
+- RETAKE, SAVE, and SHARE actions.
+- Native Web Share API with PNG file sharing when supported; save/download fallback otherwise.
+- Optional subtle MIRROR MASK • BOOGEYMAN STORIES signature.
+- Client-side only: portraits are generated locally in the browser and are not uploaded by the widget.
+
+TEST FIRST
+1. Front camera + a reactive mask: use 3S TIMER, move/blink during countdown, then verify the saved portrait matches the final pose.
+2. Toggle INSTANT and capture again.
+3. SAVE with signature ON and OFF.
+4. SHARE on iPhone/Android and verify the native share sheet receives a PNG.
+5. Flip to rear camera, point at another face, capture, and verify orientation is not mirrored.
+6. RETAKE and confirm live tracking resumes normally.

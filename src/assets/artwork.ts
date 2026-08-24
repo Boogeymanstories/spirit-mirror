@@ -1,84 +1,90 @@
-// Production Graphic Assets for MIRROR MASK
-import hauntedFrameUrl from './processed/haunted_gothic_frame.png';
-import crackedOverlayUrl from './processed/cracked_mirror_overlay.png';
-import baroqueOverlayUrl from './processed/baroque_overlay.png';
-import brassPlaqueUrl from './processed/brass_ui_plaque.png';
+// Production graphic assets for MIRROR MASK
+import hauntedFrameUrl from './processed/haunted_gothic_frame.webp';
+import crackedOverlayUrl from './processed/cracked_mirror_overlay.webp';
+import baroqueOverlayUrl from './processed/baroque_overlay.webp';
+import brassPlaqueUrl from './processed/brass_ui_plaque.webp';
+import dormantGlassBgUrl from './images/dormant_glass_bg_1787523834661.jpg';
 
-// Manifestation Masks
-import cursedStoneMaskUrl from './processed/cursed_stone_mask.png';
-import veiledOneOverlayUrl from './processed/veiled_one_overlay.png';
-import demonGrinMaskUrl from './processed/demon_grin_mask.png';
-import passengerWraithUrl from './processed/passenger_wraith.png';
+import hollow from './masks/hollow.webp';
+import veiledOne from './masks/veiled_one.webp';
+import grinningGuest from './masks/grinning_guest.webp';
+import boneSaint from './masks/bone_saint.webp';
+import thornCrown from './masks/thorn_crown.webp';
+import mossCrownedSwampDemon from './masks/moss_crowned_swamp_demon.webp';
+import plagueBaron from './masks/plague_baron.webp';
+import waxProphet from './masks/wax_prophet.webp';
+import ravenPriest from './masks/raven_priest.webp';
+import ashenKing from './masks/ashen_king.webp';
+import drownedMariner from './masks/drowned_mariner.webp';
+import porcelainWidow from './masks/porcelain_widow.webp';
+import starbornEntity from './masks/starborn_entity.webp';
+import scarecrowKing from './masks/scarecrow_king.webp';
+import cryptHound from './masks/crypt_hound.webp';
+import vampireMagistrate from './masks/vampire_magistrate.webp';
+import lanternWitch from './masks/lantern_witch.webp';
+import hiveMatriarch from './masks/hive_matriarch.webp';
+import shadowJackal from './masks/shadow_jackal.webp';
+import raggedSpecter from './masks/ragged_specter.webp';
 
-// Dormant Talisman Sigils (0 to 4)
-import talisman0 from './processed/talisman_sigil_0.png';
-import talisman1 from './processed/talisman_sigil_1.png';
-import talisman2 from './processed/talisman_sigil_2.png';
-import talisman3 from './processed/talisman_sigil_3.png';
-import talisman4 from './processed/talisman_sigil_4.png';
-
-// Awakened Celestial Sigils (0 to 4)
-import celestial0 from './processed/celestial_sigil_0.png';
-import celestial1 from './processed/celestial_sigil_1.png';
-import celestial2 from './processed/celestial_sigil_2.png';
-import celestial3 from './processed/celestial_sigil_3.png';
-import celestial4 from './processed/celestial_sigil_4.png';
+export const MASK_ARTWORK = {
+  hollow,
+  veiled_one: veiledOne,
+  grinning_guest: grinningGuest,
+  bone_saint: boneSaint,
+  thorn_crown: thornCrown,
+  moss_crowned_swamp_demon: mossCrownedSwampDemon,
+  plague_baron: plagueBaron,
+  wax_prophet: waxProphet,
+  raven_priest: ravenPriest,
+  ashen_king: ashenKing,
+  drowned_mariner: drownedMariner,
+  porcelain_widow: porcelainWidow,
+  starborn_entity: starbornEntity,
+  scarecrow_king: scarecrowKing,
+  crypt_hound: cryptHound,
+  vampire_magistrate: vampireMagistrate,
+  lantern_witch: lanternWitch,
+  hive_matriarch: hiveMatriarch,
+  shadow_jackal: shadowJackal,
+  ragged_specter: raggedSpecter,
+} as const;
 
 export const ARTWORK = {
   hauntedFrame: hauntedFrameUrl,
   crackedOverlay: crackedOverlayUrl,
   baroqueOverlay: baroqueOverlayUrl,
   brassPlaque: brassPlaqueUrl,
-  cursedStoneMask: cursedStoneMaskUrl,
-  veiledOneOverlay: veiledOneOverlayUrl,
-  demonGrinMask: demonGrinMaskUrl,
-  passengerWraith: passengerWraithUrl,
-  talismanSigils: [talisman0, talisman1, talisman2, talisman3, talisman4],
-  celestialSigils: [celestial0, celestial1, celestial2, celestial3, celestial4],
+  dormantGlassBg: dormantGlassBgUrl,
 };
 
-// Canvas Image Preload Cache
 const imageCache: Record<string, HTMLImageElement> = {};
 
-export function getLoadedImage(urlOrKey: string): HTMLImageElement | null {
-  const url = (ARTWORK as any)[urlOrKey] || urlOrKey;
-  if (!url || typeof url !== 'string') return null;
-
+export function getLoadedImage(url: string): HTMLImageElement | null {
+  if (!url) return null;
   if (!imageCache[url]) {
     const img = new Image();
     img.src = url;
-    img.crossOrigin = 'anonymous';
     imageCache[url] = img;
   }
   const img = imageCache[url];
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
 
-// Preload all assets immediately
-export function preloadAllArtwork() {
-  const allUrls: string[] = [
+export function preloadCoreArtwork() {
+  [
     ARTWORK.hauntedFrame,
     ARTWORK.crackedOverlay,
     ARTWORK.baroqueOverlay,
     ARTWORK.brassPlaque,
-    ARTWORK.cursedStoneMask,
-    ARTWORK.veiledOneOverlay,
-    ARTWORK.demonGrinMask,
-    ARTWORK.passengerWraith,
-    ...ARTWORK.talismanSigils,
-    ...ARTWORK.celestialSigils,
-  ];
-
-  allUrls.forEach((url) => {
-    if (!imageCache[url]) {
-      const img = new Image();
-      img.src = url;
-      img.crossOrigin = 'anonymous';
-      imageCache[url] = img;
-    }
-  });
+    ARTWORK.dormantGlassBg,
+    MASK_ARTWORK.hollow,
+    MASK_ARTWORK.veiled_one,
+    MASK_ARTWORK.grinning_guest,
+  ].forEach((url) => getLoadedImage(url));
 }
 
-if (typeof window !== 'undefined') {
-  preloadAllArtwork();
+export function preloadMask(url: string) {
+  getLoadedImage(url);
 }
+
+if (typeof window !== 'undefined') preloadCoreArtwork();
