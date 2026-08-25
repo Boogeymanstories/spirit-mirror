@@ -24,11 +24,6 @@ export interface Manifestation {
   id: ManifestationId;
   name: string;
   latinName: string;
-  tagline: string;
-  glyph: string;
-  glyphTitle: string;
-  lore: string;
-  accentColor: string;
 }
 
 export type CameraFacing = 'user' | 'environment';
@@ -79,19 +74,4 @@ export interface FaceMetrics {
   expressions: FaceExpressions;
   landmarks: Point3D[];
   timestamp: number;
-}
-
-export type ParanormalEventType =
-  | 'peripheral_face'
-  | 'reflection_lag'
-  | 'black_frame'
-  | 'wrong_eyes'
-  | 'glass_pulse';
-
-export interface ParanormalState {
-  activeEvent: ParanormalEventType | null;
-  intensity: number;
-  variant: number;
-  startTime: number;
-  durationMs: number;
 }

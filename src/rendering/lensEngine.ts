@@ -91,10 +91,6 @@ function hash(seed: number): number {
   return x - Math.floor(x);
 }
 
-export function isReactiveLens(id: ManifestationId): boolean {
-  return Boolean(LENS_PROFILES[id]);
-}
-
 export function getReactiveJawAdjustment(
   id: ManifestationId,
   metrics: FaceMetrics,

@@ -156,12 +156,6 @@ export async function requestCamera(
   }
 }
 
-// Backward-compatible alias used by older code paths.
-export async function requestUserCamera(): Promise<CameraStartResult> {
-  const requestGeneration = beginCameraRequestGeneration();
-  return requestCamera(requestGeneration, 'user');
-}
-
 export async function countVideoInputs(): Promise<number> {
   if (!navigator.mediaDevices?.enumerateDevices) return 0;
   try {
