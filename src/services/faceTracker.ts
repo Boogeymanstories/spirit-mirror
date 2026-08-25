@@ -1,5 +1,5 @@
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { FaceExpressions, FaceMetrics, Point2D, Point3D } from '../types';
+import { FaceExpressions, FaceMetrics, Point2D } from '../types';
 
 let faceLandmarkerInstance: FaceLandmarker | null = null;
 let faceLandmarkerInitialization: Promise<FaceLandmarker | null> | null = null;
@@ -7,16 +7,28 @@ let faceLandmarkerEpoch = 0;
 let smoothedMetrics: FaceMetrics | null = null;
 
 const EMA_ALPHA_POS = 0.28;
-const EMA_ALPHA_ROT = 0.18;
 const EMA_ALPHA_SCALE = 0.24;
 const EMA_ALPHA_EXPRESSION = 0.36;
 const POSITION_DEADZONE = 0.0018;
-const ANGLE_DEADZONE = 0.01;
 const SCALE_DEADZONE = 0.002;
 const EXPRESSION_DEADZONE = 0.012;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+function screenX(x: number, mirrored: boolean): number {
+  return mirrored ? 1.0 - x : x;
+}
+
+function copyLandmarkPoint(
+  landmarks: readonly Point2D[],
+  index: number,
+  mirrored: boolean,
+  fallbackIndex = index
+): Point2D {
+  const point = landmarks[index] || landmarks[fallbackIndex];
+  return { x: screenX(point.x, mirrored), y: point.y };
 }
 
 function smoothPoint(curr: Point2D, prev: Point2D | undefined, alpha: number): Point2D {
@@ -37,15 +49,6 @@ function smoothScalar(curr: number, prev: number | undefined, alpha: number, dea
   return prev + alpha * diff;
 }
 
-function smoothAngle(curr: number, prev: number | undefined, alpha: number): number {
-  if (prev === undefined) return curr;
-  let diff = curr - prev;
-  while (diff < -Math.PI) diff += Math.PI * 2;
-  while (diff > Math.PI) diff -= Math.PI * 2;
-  if (Math.abs(diff) <= ANGLE_DEADZONE) return prev;
-  return prev + alpha * diff;
-}
-
 function smoothExpressions(curr: FaceExpressions, prev?: FaceExpressions): FaceExpressions {
   if (!prev) return curr;
   return {
@@ -54,7 +57,6 @@ function smoothExpressions(curr: FaceExpressions, prev?: FaceExpressions): FaceE
     mouthWidth: smoothScalar(curr.mouthWidth, prev.mouthWidth, EMA_ALPHA_EXPRESSION, EXPRESSION_DEADZONE),
     eyeBlinkLeft: smoothScalar(curr.eyeBlinkLeft, prev.eyeBlinkLeft, EMA_ALPHA_EXPRESSION, EXPRESSION_DEADZONE),
     eyeBlinkRight: smoothScalar(curr.eyeBlinkRight, prev.eyeBlinkRight, EMA_ALPHA_EXPRESSION, EXPRESSION_DEADZONE),
-    browRaise: smoothScalar(curr.browRaise, prev.browRaise, EMA_ALPHA_EXPRESSION, EXPRESSION_DEADZONE),
   };
 }
 
@@ -65,7 +67,6 @@ function emptyExpressions(): FaceExpressions {
     mouthWidth: 0,
     eyeBlinkLeft: 0,
     eyeBlinkRight: 0,
-    browRaise: 0,
   };
 }
 
@@ -184,56 +185,43 @@ export function processVideoFrame(
     }
 
     const rawLandmarks = results.faceLandmarks[0];
-    const landmarks: Point3D[] = rawLandmarks.map((pt) => ({
-      x: mirrored ? 1.0 - pt.x : pt.x,
-      y: pt.y,
-      z: pt.z,
-    }));
 
     const ptScreenLeftEyeOuter = mirrored
-      ? (landmarks[263] || landmarks[359])
-      : (landmarks[33] || landmarks[130]);
-    const ptScreenLeftEyeInner = mirrored ? landmarks[362] : landmarks[133];
+      ? (rawLandmarks[263] || rawLandmarks[359])
+      : (rawLandmarks[33] || rawLandmarks[130]);
+    const ptScreenLeftEyeInner = mirrored ? rawLandmarks[362] : rawLandmarks[133];
     const ptScreenRightEyeOuter = mirrored
-      ? (landmarks[33] || landmarks[130])
-      : (landmarks[263] || landmarks[359]);
-    const ptScreenRightEyeInner = mirrored ? landmarks[133] : landmarks[362];
+      ? (rawLandmarks[33] || rawLandmarks[130])
+      : (rawLandmarks[263] || rawLandmarks[359]);
+    const ptScreenRightEyeInner = mirrored ? rawLandmarks[133] : rawLandmarks[362];
 
     const leftEyeRaw: Point2D = {
-      x: (ptScreenLeftEyeOuter.x + ptScreenLeftEyeInner.x) / 2,
+      x:
+        (screenX(ptScreenLeftEyeOuter.x, mirrored) +
+          screenX(ptScreenLeftEyeInner.x, mirrored)) /
+        2,
       y: (ptScreenLeftEyeOuter.y + ptScreenLeftEyeInner.y) / 2,
     };
 
     const rightEyeRaw: Point2D = {
-      x: (ptScreenRightEyeOuter.x + ptScreenRightEyeInner.x) / 2,
+      x:
+        (screenX(ptScreenRightEyeOuter.x, mirrored) +
+          screenX(ptScreenRightEyeInner.x, mirrored)) /
+        2,
       y: (ptScreenRightEyeOuter.y + ptScreenRightEyeInner.y) / 2,
     };
 
-    const noseRaw: Point2D = landmarks[4] || landmarks[1];
-    const foreheadRaw: Point2D = landmarks[10] || landmarks[151];
-    const chinRaw: Point2D = landmarks[152] || landmarks[199];
-    const mouthLeftRaw: Point2D = mirrored ? landmarks[291] : landmarks[61];
-    const mouthRightRaw: Point2D = mirrored ? landmarks[61] : landmarks[291];
-    const mouthTopRaw: Point2D = landmarks[13] || landmarks[0];
-    const mouthBottomRaw: Point2D = landmarks[14] || landmarks[17];
-    const leftCheekRaw: Point2D = mirrored ? landmarks[454] : landmarks[234];
-    const rightCheekRaw: Point2D = mirrored ? landmarks[234] : landmarks[454];
-
-    const centerRaw: Point2D = {
-      x: (foreheadRaw.x + chinRaw.x + noseRaw.x) / 3,
-      y: (foreheadRaw.y + chinRaw.y + noseRaw.y) / 3,
-    };
+    const foreheadRaw = copyLandmarkPoint(rawLandmarks, 10, mirrored, 151);
+    const chinRaw = copyLandmarkPoint(rawLandmarks, 152, mirrored, 199);
+    const mouthLeftRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 291 : 61, mirrored);
+    const mouthRightRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 61 : 291, mirrored);
+    const mouthTopRaw = copyLandmarkPoint(rawLandmarks, 13, mirrored, 0);
+    const mouthBottomRaw = copyLandmarkPoint(rawLandmarks, 14, mirrored, 17);
+    const leftCheekRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 454 : 234, mirrored);
+    const rightCheekRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 234 : 454, mirrored);
 
     const eyeDx = rightEyeRaw.x - leftEyeRaw.x;
     const eyeDy = rightEyeRaw.y - leftEyeRaw.y;
-    const rotationZRaw = Math.atan2(eyeDy, eyeDx);
-
-    const eyeMidX = (leftEyeRaw.x + rightEyeRaw.x) / 2;
-    const rotationYRaw = (noseRaw.x - eyeMidX) * 4.0;
-
-    const eyeMidY = (leftEyeRaw.y + rightEyeRaw.y) / 2;
-    const rotationXRaw = (noseRaw.y - eyeMidY - 0.08) * 4.0;
-
     const eyeDist = Math.hypot(eyeDx, eyeDy);
     const faceHeightRaw = Math.hypot(chinRaw.x - foreheadRaw.x, chinRaw.y - foreheadRaw.y);
     const faceWidthRaw = Math.hypot(rightCheekRaw.x - leftCheekRaw.x, rightCheekRaw.y - leftCheekRaw.y);
@@ -272,26 +260,14 @@ export function processVideoFrame(
       // FaceMetrics uses screen-left / screen-right semantics, so swap on mirrored selfie video.
       eyeBlinkLeft: mirrored ? anatomicalRightBlink : anatomicalLeftBlink,
       eyeBlinkRight: mirrored ? anatomicalLeftBlink : anatomicalRightBlink,
-      browRaise: clamp01(
-        Math.max(
-          blendshape('browInnerUp'),
-          (blendshape('browOuterUpLeft') + blendshape('browOuterUpRight')) / 2
-        )
-      ),
     };
 
     const prev = smoothedMetrics;
 
     const currentMetrics: FaceMetrics = {
       detected: true,
-      center: smoothPoint(centerRaw, prev?.center, EMA_ALPHA_POS),
-      scale: smoothScalar(eyeDist * 2.8, prev?.scale, EMA_ALPHA_SCALE, SCALE_DEADZONE),
-      rotationZ: smoothAngle(rotationZRaw, prev?.rotationZ, EMA_ALPHA_ROT),
-      rotationY: smoothAngle(rotationYRaw, prev?.rotationY, EMA_ALPHA_ROT),
-      rotationX: smoothAngle(rotationXRaw, prev?.rotationX, EMA_ALPHA_ROT),
       leftEye: smoothPoint(leftEyeRaw, prev?.leftEye, EMA_ALPHA_POS),
       rightEye: smoothPoint(rightEyeRaw, prev?.rightEye, EMA_ALPHA_POS),
-      noseTip: smoothPoint(noseRaw, prev?.noseTip, EMA_ALPHA_POS),
       mouthCenter: smoothPoint(
         {
           x: (mouthTopRaw.x + mouthBottomRaw.x) / 2,
@@ -311,8 +287,6 @@ export function processVideoFrame(
       faceWidth: smoothScalar(faceWidthRaw, prev?.faceWidth, EMA_ALPHA_SCALE, SCALE_DEADZONE),
       faceHeight: smoothScalar(faceHeightRaw, prev?.faceHeight, EMA_ALPHA_SCALE, SCALE_DEADZONE),
       expressions: smoothExpressions(rawExpressions, prev?.expressions),
-      landmarks,
-      timestamp: timestampMs,
     };
 
     smoothedMetrics = currentMetrics;
@@ -344,14 +318,8 @@ export function releaseFaceLandmarker(): void {
 function createEmptyMetrics(): FaceMetrics {
   return {
     detected: false,
-    center: { x: 0.5, y: 0.45 },
-    scale: 0.35,
-    rotationZ: 0,
-    rotationY: 0,
-    rotationX: 0,
     leftEye: { x: 0.42, y: 0.4 },
     rightEye: { x: 0.58, y: 0.4 },
-    noseTip: { x: 0.5, y: 0.48 },
     mouthCenter: { x: 0.5, y: 0.58 },
     mouthTop: { x: 0.5, y: 0.56 },
     mouthBottom: { x: 0.5, y: 0.6 },
@@ -364,7 +332,5 @@ function createEmptyMetrics(): FaceMetrics {
     faceWidth: 0.3,
     faceHeight: 0.4,
     expressions: emptyExpressions(),
-    landmarks: [],
-    timestamp: performance.now(),
   };
 }

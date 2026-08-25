@@ -39,7 +39,6 @@ export type CameraStatus =
   | 'error';
 
 export interface Point2D { x: number; y: number; }
-export interface Point3D { x: number; y: number; z: number; }
 
 export interface FaceExpressions {
   jawOpen: number;
@@ -47,19 +46,12 @@ export interface FaceExpressions {
   mouthWidth: number;
   eyeBlinkLeft: number;
   eyeBlinkRight: number;
-  browRaise: number;
 }
 
 export interface FaceMetrics {
   detected: boolean;
-  center: Point2D;
-  scale: number;
-  rotationZ: number;
-  rotationY: number;
-  rotationX: number;
   leftEye: Point2D;
   rightEye: Point2D;
-  noseTip: Point2D;
   mouthCenter: Point2D;
   mouthTop: Point2D;
   mouthBottom: Point2D;
@@ -72,6 +64,4 @@ export interface FaceMetrics {
   faceWidth: number;
   faceHeight: number;
   expressions: FaceExpressions;
-  landmarks: Point3D[];
-  timestamp: number;
 }

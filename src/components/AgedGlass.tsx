@@ -23,10 +23,8 @@ function mapMetricsToCanvas(
 
   return {
     ...metrics,
-    center: mapPoint(metrics.center),
     leftEye: mapPoint(metrics.leftEye),
     rightEye: mapPoint(metrics.rightEye),
-    noseTip: mapPoint(metrics.noseTip),
     mouthCenter: mapPoint(metrics.mouthCenter),
     mouthTop: mapPoint(metrics.mouthTop),
     mouthBottom: mapPoint(metrics.mouthBottom),
@@ -38,12 +36,6 @@ function mapMetricsToCanvas(
     rightCheek: mapPoint(metrics.rightCheek),
     faceWidth: metrics.faceWidth * (drawW / canvasW),
     faceHeight: metrics.faceHeight * (drawH / canvasH),
-    scale: metrics.scale * (drawW / canvasW),
-    landmarks: metrics.landmarks.map((point) => ({
-      ...point,
-      x: (drawX + point.x * drawW) / canvasW,
-      y: (drawY + point.y * drawH) / canvasH,
-    })),
   };
 }
 
