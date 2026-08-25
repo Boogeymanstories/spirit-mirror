@@ -212,6 +212,22 @@ export default function App() {
     }, [cancelCameraSwitchDelay, isSwitchingCamera, status, stream]
   );
 
+  const handleTrackingFailure = useCallback(() => {
+    if (status !== 'active' || !stream) return;
+
+    portraitCaptureControlRef.current?.cancel();
+    invalidateCameraRequests();
+    cancelCameraSwitchDelay();
+    cameraOperationRef.current = null;
+    stopUserCamera();
+    stream.getTracks().forEach((track) => track.stop());
+    resetFaceTrackingSmoothing();
+    setStream(null);
+    setStatus('error');
+    setErrorMessage('Face tracking could not be prepared. Tap retry to reopen the mirror.');
+    setIsSwitchingCamera(false);
+  }, [cancelCameraSwitchDelay, status, stream]);
+
   const handleAwaken = useCallback(async () => {
     if (cameraOperationRef.current !== null) return;
 
@@ -278,6 +294,8 @@ export default function App() {
   const handleSummonNext = useCallback(() => {
     if (isTransitioning || isSwitchingCamera) return;
 
+    const nextIndex = (currentIndex + 1) % MANIFESTATION_ORDER.length;
+    void preloadMask(MASK_ARTWORK[MANIFESTATION_ORDER[nextIndex]], 'high');
     scheduleTransition(550, () => {
       setCurrentIndex((prev) => {
         const nextIdx = (prev + 1) % MANIFESTATION_ORDER.length;
@@ -286,7 +304,7 @@ export default function App() {
         return nextIdx;
       });
     });
-  }, [isTransitioning, isSwitchingCamera, scheduleTransition]);
+  }, [currentIndex, isTransitioning, isSwitchingCamera, scheduleTransition]);
 
   const handleRandomMask = useCallback(() => {
     if (isTransitioning || isSwitchingCamera || MANIFESTATION_ORDER.length < 2) return;
@@ -297,7 +315,7 @@ export default function App() {
     }
 
     const nextId = MANIFESTATION_ORDER[nextIndex];
-    preloadMask(MASK_ARTWORK[nextId]);
+    void preloadMask(MASK_ARTWORK[nextId], 'high');
     scheduleTransition(420, () => {
       setCurrentIndex(nextIndex);
       setDiscovered((d) => new Set(d).add(nextId));
@@ -309,6 +327,7 @@ export default function App() {
       if (isSwitchingCamera) return;
       const idx = MANIFESTATION_ORDER.indexOf(id);
       if (idx !== -1) {
+        void preloadMask(MASK_ARTWORK[id], 'high');
         scheduleTransition(350, () => {
           setCurrentIndex(idx);
           setDiscovered((d) => new Set(d).add(id));
@@ -505,6 +524,7 @@ export default function App() {
             captureControlRef={portraitCaptureControlRef}
             videoPlaybackControlRef={videoPlaybackControlRef}
             onVideoPlaybackFailure={handleVideoPlaybackFailure}
+            onTrackingFailure={handleTrackingFailure}
             onAwaken={handleAwaken}
             onSummonNext={handleSummonNext}
             onRandomMask={handleRandomMask}

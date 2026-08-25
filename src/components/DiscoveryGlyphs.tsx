@@ -24,15 +24,34 @@ export const DiscoveryGlyphs: React.FC<DiscoveryGlyphsProps> = ({
     }
   }, [currentId, isAwakened]);
 
-
   useEffect(() => {
-    if (!isAwakened || currentIndex < 0) return;
-    for (let offset = -2; offset <= 2; offset += 1) {
-      const idx = (currentIndex + offset + MANIFESTATION_ORDER.length) % MANIFESTATION_ORDER.length;
-      const id = MANIFESTATION_ORDER[idx];
-      preloadMask(MASK_ARTWORK[id]);
-    }
-  }, [currentIndex, isAwakened]);
+    if (currentIndex < 0) return;
+
+    let cancelled = false;
+    let neighborFrameId: number | null = null;
+    const selectedId = MANIFESTATION_ORDER[currentIndex];
+
+    const prepareSelectedThenNeighbors = async () => {
+      await preloadMask(MASK_ARTWORK[selectedId], 'high');
+      if (cancelled) return;
+
+      neighborFrameId = requestAnimationFrame(() => {
+        if (cancelled) return;
+        const previousIndex =
+          (currentIndex - 1 + MANIFESTATION_ORDER.length) % MANIFESTATION_ORDER.length;
+        const nextIndex = (currentIndex + 1) % MANIFESTATION_ORDER.length;
+        void preloadMask(MASK_ARTWORK[MANIFESTATION_ORDER[previousIndex]]);
+        void preloadMask(MASK_ARTWORK[MANIFESTATION_ORDER[nextIndex]]);
+      });
+    };
+
+    void prepareSelectedThenNeighbors();
+
+    return () => {
+      cancelled = true;
+      if (neighborFrameId !== null) cancelAnimationFrame(neighborFrameId);
+    };
+  }, [currentIndex]);
 
   return (
     <div
@@ -46,6 +65,11 @@ export const DiscoveryGlyphs: React.FC<DiscoveryGlyphsProps> = ({
             const item = MANIFESTATIONS[id];
             const isActive = isAwakened && currentId === id;
             const maskImg = MASK_ARTWORK[id];
+            const linearDistance = Math.abs(index - currentIndex);
+            const carouselDistance = Math.min(
+              linearDistance,
+              MANIFESTATION_ORDER.length - linearDistance
+            );
 
             return (
               <button
@@ -67,6 +91,9 @@ export const DiscoveryGlyphs: React.FC<DiscoveryGlyphsProps> = ({
                 <img
                   src={maskImg}
                   alt=""
+                  loading={carouselDistance <= 1 ? 'eager' : 'lazy'}
+                  decoding="async"
+                  fetchPriority={carouselDistance === 0 ? 'high' : carouselDistance === 1 ? 'auto' : 'low'}
                   className={`w-[92%] h-[92%] object-contain transition-all duration-200 ${
                     isActive ? 'brightness-110' : 'brightness-75 group-hover:brightness-100'
                   }`}

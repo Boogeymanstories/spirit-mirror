@@ -108,6 +108,7 @@ interface AgedGlassProps {
   captureControlRef: React.MutableRefObject<PortraitCaptureControl | null>;
   videoPlaybackControlRef: React.MutableRefObject<VideoPlaybackControl | null>;
   onVideoPlaybackFailure: (failedStream: MediaStream) => void;
+  onTrackingFailure: () => void;
   onAwaken: () => void;
   onSummonNext: () => void;
   onRandomMask: () => void;
@@ -128,6 +129,7 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
   captureControlRef,
   videoPlaybackControlRef,
   onVideoPlaybackFailure,
+  onTrackingFailure,
   onAwaken,
   onSummonNext,
   onRandomMask,
@@ -155,6 +157,7 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
   currentFacingRef.current = cameraFacing;
 
   const [faceDetected, setFaceDetected] = useState(false);
+  const [trackingStatus, setTrackingStatus] = useState<'idle' | 'preparing' | 'ready'>('idle');
   const [portraitTimerEnabled, setPortraitTimerEnabled] = useState(true);
   const [captureCountdown, setCaptureCountdown] = useState<number | null>(null);
   const [isCapturingPortrait, setIsCapturingPortrait] = useState(false);
@@ -396,12 +399,41 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
     }
 
     let isSubscribed = true;
+    let trackingStartupFrameId: number | null = null;
+    let trackingStartupScheduled = false;
 
-    getFaceLandmarker().then((landmarker) => {
-      if (isSubscribed) {
-        landmarkerRef.current = landmarker;
-      }
-    });
+    setTrackingStatus(landmarkerRef.current ? 'ready' : 'preparing');
+
+    const startTracking = () => {
+      if (!isSubscribed || landmarkerRef.current) return;
+
+      void getFaceLandmarker()
+        .then((landmarker) => {
+          if (!isSubscribed) return;
+          if (!landmarker) {
+            setTrackingStatus('idle');
+            onTrackingFailure();
+            return;
+          }
+
+          landmarkerRef.current = landmarker;
+          setTrackingStatus('ready');
+        })
+        .catch(() => {
+          if (!isSubscribed) return;
+          setTrackingStatus('idle');
+          onTrackingFailure();
+        });
+    };
+
+    const scheduleTrackingAfterCameraPaint = () => {
+      if (trackingStartupScheduled || landmarkerRef.current) return;
+      trackingStartupScheduled = true;
+      trackingStartupFrameId = requestAnimationFrame(() => {
+        trackingStartupFrameId = null;
+        startTracking();
+      });
+    };
 
     const renderLoop = (time: number) => {
       if (!isSubscribed) return;
@@ -410,28 +442,14 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
       const canvas = canvasRef.current;
       const video = videoRef.current;
 
-      if (canvas && video && video.readyState >= 2) {
+      if (canvas && video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         const ctx = canvas.getContext('2d', { alpha: false });
         if (ctx) {
           const width = canvas.width;
           const height = canvas.height;
 
-          // 1. Process Face Landmarker at ~30fps. Rendering may run faster, but running
-          // MediaPipe every animation frame wastes mobile CPU and can make tracking less stable.
-          let metrics: FaceMetrics | null = lastMetricsRef.current;
-          if (landmarkerRef.current && time - lastFaceProcessTimeRef.current >= 32) {
-            metrics = processVideoFrame(landmarkerRef.current, video, time, cameraFacing === 'user');
-            lastMetricsRef.current = metrics;
-            lastFaceProcessTimeRef.current = time;
-
-            if (faceDetectedRef.current !== metrics.detected) {
-              faceDetectedRef.current = metrics.detected;
-              setFaceDetected(metrics.detected);
-            }
-          }
-
-          // 2. Draw the live feed in the same orientation used by face tracking.
-          // Front camera behaves like a mirror; rear camera preserves the scene orientation.
+          // 1. Draw the live feed immediately in the same orientation used by tracking.
+          // Front camera behaves like a mirror; rear camera preserves scene orientation.
           const vWidth = video.videoWidth || 640;
           const vHeight = video.videoHeight || 480;
           const scale = Math.max(width / vWidth, height / vHeight);
@@ -447,6 +465,24 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
           }
           ctx.drawImage(video, drawX, drawY, drawW, drawH);
           ctx.restore();
+
+          // The next animation frame runs only after this camera frame has had a paint
+          // opportunity, keeping WASM/model setup off the permission-to-first-paint path.
+          scheduleTrackingAfterCameraPaint();
+
+          // 2. Process Face Landmarker at ~30fps. Rendering may run faster, but running
+          // MediaPipe every animation frame wastes mobile CPU and can make tracking less stable.
+          let metrics: FaceMetrics | null = lastMetricsRef.current;
+          if (landmarkerRef.current && time - lastFaceProcessTimeRef.current >= 32) {
+            metrics = processVideoFrame(landmarkerRef.current, video, time, cameraFacing === 'user');
+            lastMetricsRef.current = metrics;
+            lastFaceProcessTimeRef.current = time;
+
+            if (faceDetectedRef.current !== metrics.detected) {
+              faceDetectedRef.current = metrics.detected;
+              setFaceDetected(metrics.detected);
+            }
+          }
 
           // 3. Map MediaPipe's normalized video landmarks through the exact same
           // object-fit: cover crop used for the mirrored camera frame. Without this,
@@ -490,14 +526,33 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
 
     return () => {
       isSubscribed = false;
+      if (trackingStartupFrameId !== null) {
+        cancelAnimationFrame(trackingStartupFrameId);
+      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
     };
-  }, [status, currentManifestation, isTransitioning, reducedMotion, cameraFacing, stream]);
+  }, [
+    status,
+    currentManifestation,
+    isTransitioning,
+    reducedMotion,
+    cameraFacing,
+    stream,
+    onTrackingFailure,
+  ]);
 
-  // Clean up FaceLandmarker on unmount
+  // REST/error invalidates in-flight startup through the existing FaceLandmarker epoch guard.
+  useEffect(() => {
+    if (status === 'active') return;
+    landmarkerRef.current = null;
+    setTrackingStatus('idle');
+    releaseFaceLandmarker();
+  }, [status]);
+
+  // Clean up FaceLandmarker on unmount.
   useEffect(() => {
     return () => {
       landmarkerRef.current = null;
@@ -836,7 +891,7 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
         ref={canvasRef}
         width={480}
         height={720}
-        className={`w-full h-full object-cover transition-opacity duration-700 ${
+        className={`w-full h-full object-cover ${
           status === 'active' ? 'opacity-100' : 'opacity-0'
         } ${isTransitioning && !reducedMotion ? 'summoning-transition' : ''}`}
       />
@@ -848,6 +903,17 @@ export const AgedGlass: React.FC<AgedGlassProps> = ({
             <div className="w-3.5 h-3.5 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
             <span className="font-cinzel text-[10px] tracking-[0.2em] uppercase text-[#eadfc9]">
               TURNING THE GLASS...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {isAwakened && trackingStatus === 'preparing' && !isSwitchingCamera && (
+        <div className="absolute top-14 inset-x-0 z-20 flex justify-center pointer-events-none" aria-live="polite">
+          <div className="px-3 py-1.5 rounded-sm border border-[#675033]/80 bg-[#0d0805]/78 shadow-[0_4px_16px_rgba(0,0,0,0.72)] backdrop-blur-[1px] flex items-center gap-2">
+            <div className="w-2.5 h-2.5 border border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+            <span className="font-cinzel text-[9px] tracking-[0.12em] text-[#eadfc9]">
+              Preparing tracking…
             </span>
           </div>
         </div>

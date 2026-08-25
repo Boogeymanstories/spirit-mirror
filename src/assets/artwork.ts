@@ -57,34 +57,87 @@ export const ARTWORK = {
   dormantGlassBg: dormantGlassBgUrl,
 };
 
-const imageCache: Record<string, HTMLImageElement> = {};
+type ImageFetchPriority = 'high' | 'low' | 'auto';
 
-export function getLoadedImage(url: string): HTMLImageElement | null {
+interface CachedImage {
+  image: HTMLImageElement;
+  decoded: boolean;
+  decodePromise: Promise<HTMLImageElement | null>;
+}
+
+const imageCache: Record<string, CachedImage> = {};
+
+function createCachedImage(url: string, fetchPriority: ImageFetchPriority): CachedImage {
+  const image = new Image();
+  image.decoding = 'async';
+  image.fetchPriority = fetchPriority;
+
+  const loadPromise = new Promise<void>((resolve, reject) => {
+    image.addEventListener('load', () => resolve(), { once: true });
+    image.addEventListener('error', () => reject(new Error(`Image failed to load: ${url}`)), {
+      once: true,
+    });
+  });
+
+  const cached: CachedImage = {
+    image,
+    decoded: false,
+    decodePromise: Promise.resolve(null),
+  };
+
+  image.src = url;
+  cached.decodePromise = (async () => {
+    if (typeof image.decode === 'function') {
+      try {
+        await image.decode();
+      } catch {
+        // Some WebKit versions reject decode() for an otherwise usable cached image.
+      }
+    }
+
+    if (!image.complete || image.naturalWidth === 0) {
+      try {
+        await loadPromise;
+      } catch {
+        return null;
+      }
+    }
+
+    if (image.naturalWidth === 0) return null;
+    cached.decoded = true;
+    return image;
+  })();
+
+  return cached;
+}
+
+function getCachedImage(url: string, fetchPriority: ImageFetchPriority = 'auto'): CachedImage | null {
   if (!url) return null;
   if (!imageCache[url]) {
-    const img = new Image();
-    img.src = url;
-    imageCache[url] = img;
+    imageCache[url] = createCachedImage(url, fetchPriority);
+  } else if (fetchPriority === 'high') {
+    imageCache[url].image.fetchPriority = 'high';
   }
-  const img = imageCache[url];
-  return img.complete && img.naturalWidth > 0 ? img : null;
+  return imageCache[url];
 }
 
-export function preloadCoreArtwork() {
-  [
-    ARTWORK.hauntedFrame,
-    ARTWORK.crackedOverlay,
-    ARTWORK.baroqueOverlay,
-    ARTWORK.brassPlaque,
-    ARTWORK.dormantGlassBg,
-    MASK_ARTWORK.hollow,
-    MASK_ARTWORK.veiled_one,
-    MASK_ARTWORK.grinning_guest,
-  ].forEach((url) => getLoadedImage(url));
+export function getLoadedImage(url: string): HTMLImageElement | null {
+  const cached = getCachedImage(url);
+  return cached?.decoded ? cached.image : null;
 }
 
-export function preloadMask(url: string) {
-  getLoadedImage(url);
+export function preloadMask(
+  url: string,
+  fetchPriority: ImageFetchPriority = 'auto'
+): Promise<HTMLImageElement | null> {
+  return getCachedImage(url, fetchPriority)?.decodePromise ?? Promise.resolve(null);
+}
+
+export function preloadCoreArtwork(): void {
+  // Start the initially selected mask first. Only the cracked overlay also needs a
+  // canvas-owned image; the remaining structural art is loaded by its visible DOM image.
+  void preloadMask(MASK_ARTWORK.hollow, 'high');
+  void preloadMask(ARTWORK.crackedOverlay);
 }
 
 if (typeof window !== 'undefined') preloadCoreArtwork();
