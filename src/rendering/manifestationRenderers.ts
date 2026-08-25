@@ -348,7 +348,9 @@ function drawLowerAttachmentShadow(
   gradient.addColorStop(1, 'rgba(9,6,6,0)');
 
   ctx.fillStyle = gradient;
-  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+  const shadowPath = new Path2D();
+  shadowPath.ellipse(0, 0, radius, radius, 0, 0, Math.PI * 2);
+  ctx.fill(shadowPath);
   ctx.restore();
 }
 
