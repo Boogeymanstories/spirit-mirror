@@ -289,34 +289,42 @@ function drawMouthReaction(
   const ry = geometry.faceHeight * (0.025 + jaw * 0.035);
   const alpha = profile.mouthStrength * activation;
 
+  const centerY = geometry.mouthCenter.y + jaw * geometry.faceHeight * 0.012;
+
   ctx.save();
 
   if (profile.mouthReaction === 'shadow' || profile.mouthReaction === 'grin') {
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = `rgba(8,0,0,${0.08 + alpha * 0.2})`;
-    ctx.shadowColor = profile.mouthReaction === 'grin'
-      ? 'rgba(120,10,10,0.55)'
-      : 'rgba(0,0,0,0.65)';
-    ctx.shadowBlur = geometry.faceWidth * 0.045;
+    // Keep the tracked mouth visible: react with a feathered tint instead of a dark multiply patch.
+    ctx.globalCompositeOperation = 'screen';
+    const color = profile.mouthReaction === 'grin' ? '178,64,62' : '105,86,116';
+    ctx.translate(geometry.mouthCenter.x, centerY);
+    ctx.scale(rx, ry);
+    const feather = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    feather.addColorStop(0, `rgba(${color},${0.02 + alpha * 0.08})`);
+    feather.addColorStop(0.55, `rgba(${color},${0.008 + alpha * 0.03})`);
+    feather.addColorStop(1, `rgba(${color},0)`);
+    ctx.fillStyle = feather;
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
+    ctx.fill();
   } else {
     ctx.globalCompositeOperation = 'screen';
     const color = profile.mouthReaction === 'ember' ? '255,97,32' : '255,170,78';
     ctx.fillStyle = `rgba(${color},${0.035 + alpha * 0.11})`;
     ctx.shadowColor = `rgba(${color},0.62)`;
     ctx.shadowBlur = geometry.faceWidth * 0.05;
+    ctx.beginPath();
+    ctx.ellipse(
+      geometry.mouthCenter.x,
+      centerY,
+      rx,
+      ry,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
   }
-
-  ctx.beginPath();
-  ctx.ellipse(
-    geometry.mouthCenter.x,
-    geometry.mouthCenter.y + jaw * geometry.faceHeight * 0.012,
-    rx,
-    ry,
-    0,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
 
   ctx.restore();
 }
