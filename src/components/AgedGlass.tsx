@@ -36,6 +36,14 @@ function mapMetricsToCanvas(
     rightCheek: mapPoint(metrics.rightCheek),
     faceWidth: metrics.faceWidth * (drawW / canvasW),
     faceHeight: metrics.faceHeight * (drawH / canvasH),
+    adaptiveFit: {
+      jawAngleWidth: metrics.adaptiveFit.jawAngleWidth * (drawW / canvasW),
+      lowerJawWidth: metrics.adaptiveFit.lowerJawWidth * (drawW / canvasW),
+      cheekWidth: metrics.adaptiveFit.cheekWidth * (drawW / canvasW),
+      foreheadChinHeight: metrics.adaptiveFit.foreheadChinHeight * (drawH / canvasH),
+      jawOpen: metrics.adaptiveFit.jawOpen,
+      sampleId: metrics.adaptiveFit.sampleId,
+    },
   };
 }
 

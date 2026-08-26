@@ -1,5 +1,6 @@
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { FaceExpressions, FaceMetrics, Point2D } from '../types';
+import { adaptiveFitSmoothingAlpha, resetAdaptiveLowerFaceFit } from '../adaptiveFaceFit';
 
 let faceLandmarkerInstance: FaceLandmarker | null = null;
 let faceLandmarkerInitialization: Promise<FaceLandmarker | null> | null = null;
@@ -12,6 +13,7 @@ const EMA_ALPHA_EXPRESSION = 0.36;
 const POSITION_DEADZONE = 0.0018;
 const SCALE_DEADZONE = 0.002;
 const EXPRESSION_DEADZONE = 0.012;
+const ADAPTIVE_FIT_DEADZONE = 0.0025;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -47,6 +49,16 @@ function smoothScalar(curr: number, prev: number | undefined, alpha: number, dea
   const diff = curr - prev;
   if (Math.abs(diff) <= deadzone) return prev;
   return prev + alpha * diff;
+}
+
+function smoothAdaptiveScalar(curr: number, prev: number | undefined, jawOpen: number): number {
+  if (prev === undefined) return curr;
+  return smoothScalar(
+    curr,
+    prev,
+    adaptiveFitSmoothingAlpha(jawOpen),
+    ADAPTIVE_FIT_DEADZONE
+  );
 }
 
 function smoothExpressions(curr: FaceExpressions, prev?: FaceExpressions): FaceExpressions {
@@ -219,12 +231,40 @@ export function processVideoFrame(
     const mouthBottomRaw = copyLandmarkPoint(rawLandmarks, 14, mirrored, 17);
     const leftCheekRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 454 : 234, mirrored);
     const rightCheekRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 234 : 454, mirrored);
+    // Pass 12C4 keeps extraction minimal: only jaw angles and lower-jaw anchors are added.
+    const leftJawAngleRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 397 : 172, mirrored);
+    const rightJawAngleRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 172 : 397, mirrored);
+    const leftLowerJawRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 378 : 149, mirrored);
+    const rightLowerJawRaw = copyLandmarkPoint(rawLandmarks, mirrored ? 149 : 378, mirrored);
 
     const eyeDx = rightEyeRaw.x - leftEyeRaw.x;
     const eyeDy = rightEyeRaw.y - leftEyeRaw.y;
     const eyeDist = Math.hypot(eyeDx, eyeDy);
     const faceHeightRaw = Math.hypot(chinRaw.x - foreheadRaw.x, chinRaw.y - foreheadRaw.y);
     const faceWidthRaw = Math.hypot(rightCheekRaw.x - leftCheekRaw.x, rightCheekRaw.y - leftCheekRaw.y);
+
+    // Measure in the eye-aligned source-video frame so roll and video aspect ratio do not
+    // masquerade as face-shape changes. Widths remain normalized to video width and height
+    // remains normalized to video height for exact object-fit mapping onto either canvas.
+    const videoWidth = Math.max(videoElement.videoWidth, 1);
+    const videoHeight = Math.max(videoElement.videoHeight, 1);
+    const eyeRoll = Math.atan2(eyeDy * videoHeight, eyeDx * videoWidth);
+    const rollCos = Math.cos(eyeRoll);
+    const rollSin = Math.sin(eyeRoll);
+    const alignedWidth = (left: Point2D, right: Point2D): number => {
+      const dx = (right.x - left.x) * videoWidth;
+      const dy = (right.y - left.y) * videoHeight;
+      return Math.abs(dx * rollCos + dy * rollSin) / videoWidth;
+    };
+    const alignedHeight = (top: Point2D, bottom: Point2D): number => {
+      const dx = (bottom.x - top.x) * videoWidth;
+      const dy = (bottom.y - top.y) * videoHeight;
+      return Math.abs(-dx * rollSin + dy * rollCos) / videoHeight;
+    };
+    const jawAngleWidthRaw = alignedWidth(leftJawAngleRaw, rightJawAngleRaw);
+    const lowerJawWidthRaw = alignedWidth(leftLowerJawRaw, rightLowerJawRaw);
+    const cheekWidthRaw = alignedWidth(leftCheekRaw, rightCheekRaw);
+    const foreheadChinHeightRaw = alignedHeight(foreheadRaw, chinRaw);
 
     // Pass 9: MediaPipe blendshapes drive the reactive Lens Engine. Keep a landmark
     // fallback so the masks still react gracefully if a browser/device omits categories.
@@ -286,6 +326,30 @@ export function processVideoFrame(
       rightCheek: smoothPoint(rightCheekRaw, prev?.rightCheek, EMA_ALPHA_POS),
       faceWidth: smoothScalar(faceWidthRaw, prev?.faceWidth, EMA_ALPHA_SCALE, SCALE_DEADZONE),
       faceHeight: smoothScalar(faceHeightRaw, prev?.faceHeight, EMA_ALPHA_SCALE, SCALE_DEADZONE),
+      adaptiveFit: {
+        jawAngleWidth: smoothAdaptiveScalar(
+          jawAngleWidthRaw,
+          prev?.adaptiveFit.jawAngleWidth,
+          rawExpressions.jawOpen
+        ),
+        lowerJawWidth: smoothAdaptiveScalar(
+          lowerJawWidthRaw,
+          prev?.adaptiveFit.lowerJawWidth,
+          rawExpressions.jawOpen
+        ),
+        cheekWidth: smoothAdaptiveScalar(
+          cheekWidthRaw,
+          prev?.adaptiveFit.cheekWidth,
+          rawExpressions.jawOpen
+        ),
+        foreheadChinHeight: smoothAdaptiveScalar(
+          foreheadChinHeightRaw,
+          prev?.adaptiveFit.foreheadChinHeight,
+          rawExpressions.jawOpen
+        ),
+        jawOpen: rawExpressions.jawOpen,
+        sampleId: safeTimestamp,
+      },
       expressions: smoothExpressions(rawExpressions, prev?.expressions),
     };
 
@@ -300,6 +364,7 @@ export function processVideoFrame(
 export function resetFaceTrackingSmoothing(): void {
   smoothedMetrics = null;
   lastProcessedTimestamp = 0;
+  resetAdaptiveLowerFaceFit();
 }
 
 export function releaseFaceLandmarker(): void {
@@ -313,6 +378,7 @@ export function releaseFaceLandmarker(): void {
 
   smoothedMetrics = null;
   lastProcessedTimestamp = 0;
+  resetAdaptiveLowerFaceFit();
 }
 
 function createEmptyMetrics(): FaceMetrics {
@@ -331,6 +397,14 @@ function createEmptyMetrics(): FaceMetrics {
     rightCheek: { x: 0.65, y: 0.48 },
     faceWidth: 0.3,
     faceHeight: 0.4,
+    adaptiveFit: {
+      jawAngleWidth: 0.25,
+      lowerJawWidth: 0.2,
+      cheekWidth: 0.3,
+      foreheadChinHeight: 0.4,
+      jawOpen: 0,
+      sampleId: 0,
+    },
     expressions: emptyExpressions(),
   };
 }

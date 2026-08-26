@@ -48,6 +48,15 @@ export interface FaceExpressions {
   eyeBlinkRight: number;
 }
 
+export interface AdaptiveFaceMetrics {
+  jawAngleWidth: number;
+  lowerJawWidth: number;
+  cheekWidth: number;
+  foreheadChinHeight: number;
+  jawOpen: number;
+  sampleId: number;
+}
+
 export interface FaceMetrics {
   detected: boolean;
   leftEye: Point2D;
@@ -63,5 +72,6 @@ export interface FaceMetrics {
   rightCheek: Point2D;
   faceWidth: number;
   faceHeight: number;
+  adaptiveFit: AdaptiveFaceMetrics;
   expressions: FaceExpressions;
 }

@@ -5,6 +5,11 @@ import {
   renderReactiveLensBack,
   renderReactiveLensFront,
 } from './lensEngine';
+import {
+  calculateAdaptiveLowerFaceFit,
+  lowerFaceCorrectionProgress,
+  stabilizeAdaptiveLowerFaceFit,
+} from '../adaptiveFaceFit';
 
 type FitType = 'full-face' | 'half-mask';
 type MaskEffectKind = 'ember' | 'candle' | 'swamp' | 'veil' | 'shadow';
@@ -588,22 +593,48 @@ function drawFaceMappedMask(
     reducedMotion
   );
 
-  const x0 =
-    rawX0 - sideBoost - jawSideBoost - mouthJawBoost - reactiveJaw.xBoost + offsetXPx;
-  const adjX1 = x1 + offsetXPx;
-  const adjX2 = x2 + offsetXPx;
-  const x3 =
-    rawX3 + sideBoost + jawSideBoost + mouthJawBoost + reactiveJaw.xBoost + offsetXPx;
+  // Keep an explicit Pass 7 baseline for adaptive comparison. Mouth/Lens additions remain
+  // unchanged and are applied after the bounded correction, exactly as before this pass.
+  const pass7X0 = rawX0 - sideBoost - jawSideBoost + offsetXPx;
+  const pass7X3 = rawX3 + sideBoost + jawSideBoost + offsetXPx;
   const y0 = rawY0 - extraTop + offsetYPx;
   const y1 = rawY1 + offsetYPx;
-  const y2 =
+  const pass7Y2 =
     rawY2 +
     extraBottom +
     lowerFaceHeightBoost +
     faceHeight * chinExtension +
-    mouthBottomBoost +
-    reactiveJaw.yBoost +
     offsetYPx;
+
+  const desiredAdaptiveFit = calculateAdaptiveLowerFaceFit({
+    isHalfMask,
+    baselineX0: pass7X0,
+    baselineX3: pass7X3,
+    baselineY1: y1,
+    baselineY2: pass7Y2,
+    metrics: metrics.adaptiveFit,
+    canvasWidth: width,
+    canvasHeight: height,
+  });
+  const adaptiveFit = stabilizeAdaptiveLowerFaceFit(
+    manifestationId,
+    desiredAdaptiveFit,
+    metrics.adaptiveFit,
+    isHalfMask
+  );
+  const pass7CenterX = (pass7X0 + pass7X3) / 2;
+  const adaptiveLeftDelta = (pass7X0 - pass7CenterX) * (adaptiveFit.widthScale - 1);
+  const adaptiveRightDelta = (pass7X3 - pass7CenterX) * (adaptiveFit.widthScale - 1);
+  const adaptiveHeightDelta = (pass7Y2 - y1) * (adaptiveFit.heightScale - 1);
+
+  const x0 = pass7X0 - mouthJawBoost - reactiveJaw.xBoost;
+  const adjX1 = x1 + offsetXPx;
+  const adjX2 = x2 + offsetXPx;
+  const x3 = pass7X3 + mouthJawBoost + reactiveJaw.xBoost;
+  const y2 = pass7Y2 + mouthBottomBoost + reactiveJaw.yBoost;
+  const lowerX0 = x0 + adaptiveLeftDelta;
+  const lowerX3 = x3 + adaptiveRightDelta;
+  const lowerY2 = y2 + adaptiveHeightDelta;
 
   if (calibration.voidEyes) {
     drawVoidEyes(ctx, trackedLeftEye, trackedRightEye, targetEyeDistance, roll);
@@ -616,10 +647,10 @@ function drawFaceMappedMask(
   if (!isHalfMask) {
     drawLowerAttachmentShadow(
       ctx,
-      x0,
-      x3,
+      lowerX0,
+      lowerX3,
       y1,
-      y2,
+      lowerY2,
       calibration.lowerFaceFeather ?? profile.lowerFaceFeather,
       calibration.chinShadowStrength ?? profile.chinShadowStrength
     );
@@ -653,27 +684,55 @@ function drawFaceMappedMask(
   ctx.globalCompositeOperation = 'source-over';
 
   const sx = [0, artLeftEye.x, artRightEye.x, imgW];
-  const dx = [x0, adjX1, adjX2, x3];
-  const sy = [0, artEyeMid.y, imgH];
-  const dy = [y0, y1, y2];
-
-  for (let row = 0; row < 2; row += 1) {
+  const drawMappedStrip = (
+    sourceY: number,
+    sourceHeight: number,
+    destY: number,
+    destHeight: number,
+    outerLeft: number,
+    outerRight: number
+  ) => {
+    const dx = [outerLeft, adjX1, adjX2, outerRight];
     for (let col = 0; col < 3; col += 1) {
       const sourceW = sx[col + 1] - sx[col];
-      const sourceH = sy[row + 1] - sy[row];
       const destW = dx[col + 1] - dx[col];
-      const destH = dy[row + 1] - dy[row];
-      if (sourceW <= 0 || sourceH <= 0 || destW <= 0 || destH <= 0) continue;
+      if (sourceW <= 0 || sourceHeight <= 0 || destW <= 0 || destHeight <= 0) continue;
       ctx.drawImage(
         img,
         sx[col],
-        sy[row],
+        sourceY,
         sourceW,
-        sourceH,
+        sourceHeight,
         dx[col],
-        dy[row],
+        destY,
         destW,
-        destH
+        destHeight
+      );
+    }
+  };
+
+  // The complete upper row retains the exact Pass 7 destination coordinates.
+  drawMappedStrip(0, artEyeMid.y, y0, y1 - y0, x0, x3);
+
+  if (adaptiveFit.widthScale === 1 && adaptiveFit.heightScale === 1) {
+    drawMappedStrip(artEyeMid.y, imgH - artEyeMid.y, y1, y2 - y1, x0, x3);
+  } else {
+    // Twelve lower-only strips make correction progressive without moving eye anchors, the
+    // central nose/mouth column, forehead, top edge, or any upper-face coordinate.
+    const lowerBands = 12;
+    const sourceLowerHeight = imgH - artEyeMid.y;
+    const destLowerHeight = lowerY2 - y1;
+    for (let band = 0; band < lowerBands; band += 1) {
+      const start = band / lowerBands;
+      const end = (band + 1) / lowerBands;
+      const progress = lowerFaceCorrectionProgress((start + end) / 2);
+      drawMappedStrip(
+        artEyeMid.y + sourceLowerHeight * start,
+        sourceLowerHeight * (end - start),
+        y1 + destLowerHeight * start,
+        destLowerHeight * (end - start),
+        x0 + adaptiveLeftDelta * progress,
+        x3 + adaptiveRightDelta * progress
       );
     }
   }
