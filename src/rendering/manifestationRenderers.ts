@@ -36,6 +36,7 @@ interface MaskCalibration {
   // Pass 7 lower-face tuning. These apply only to full-face masks.
   chinExtension?: number;
   jawWidthScale?: number;
+  cheekWidthScale?: number;
   lowerCheekScale?: number;
   lowerFaceScaleY?: number;
   lowerFaceFeather?: number;
@@ -50,6 +51,7 @@ const FULL_FACE_PROFILE = {
   offsetY: -0.025,
   chinExtension: 0.08,
   jawWidthScale: 1.055,
+  cheekWidthScale: 1.0,
   lowerCheekScale: 1.035,
   lowerFaceScaleY: 1.055,
   lowerFaceFeather: 0.16,
@@ -62,6 +64,7 @@ const HALF_MASK_PROFILE = {
   offsetY: 0,
   chinExtension: 0,
   jawWidthScale: 1,
+  cheekWidthScale: 1,
   lowerCheekScale: 1,
   lowerFaceScaleY: 1,
   lowerFaceFeather: 0,
@@ -525,9 +528,9 @@ function drawFaceMappedMask(
 
   const x1 = -targetEyeDistance / 2;
   const x2 = targetEyeDistance / 2;
-  const minOuterBoostX = 1.24;
+  const minOuterBoostX = 1.31;
   const minTopBoost = 1.14;
-  const minBottomBoost = 1.2;
+  const minBottomBoost = 1.27;
 
   const lowerCheekScale = isHalfMask
     ? 1
@@ -562,6 +565,10 @@ function drawFaceMappedMask(
     ? 1
     : calibration.jawWidthScale ?? profile.jawWidthScale;
   const jawSideBoost = (faceWidth * (jawWidthScale - 1)) / 2;
+  const cheekWidthScale = isHalfMask
+    ? 1
+    : calibration.cheekWidthScale ?? profile.cheekWidthScale;
+  const cheekSideBoost = (faceWidth * (cheekWidthScale - 1)) / 2;
 
   const lowerFaceScaleY = isHalfMask
     ? 1
@@ -595,8 +602,8 @@ function drawFaceMappedMask(
 
   // Keep an explicit Pass 7 baseline for adaptive comparison. Mouth/Lens additions remain
   // unchanged and are applied after the bounded correction, exactly as before this pass.
-  const pass7X0 = rawX0 - sideBoost - jawSideBoost + offsetXPx;
-  const pass7X3 = rawX3 + sideBoost + jawSideBoost + offsetXPx;
+  const pass7X0 = rawX0 - sideBoost - jawSideBoost - cheekSideBoost + offsetXPx;
+  const pass7X3 = rawX3 + sideBoost + jawSideBoost + cheekSideBoost + offsetXPx;
   const y0 = rawY0 - extraTop + offsetYPx;
   const y1 = rawY1 + offsetYPx;
   const pass7Y2 =
@@ -684,6 +691,7 @@ function drawFaceMappedMask(
   ctx.globalCompositeOperation = 'source-over';
 
   const sx = [0, artLeftEye.x, artRightEye.x, imgW];
+  const STRIP_OVERLAP = 0.5;
   const drawMappedStrip = (
     sourceY: number,
     sourceHeight: number,
@@ -695,15 +703,18 @@ function drawFaceMappedMask(
     const dx = [outerLeft, adjX1, adjX2, outerRight];
     for (let col = 0; col < 3; col += 1) {
       const sourceW = sx[col + 1] - sx[col];
-      const destW = dx[col + 1] - dx[col];
+      let destW = dx[col + 1] - dx[col];
+      let destX = dx[col];
       if (sourceW <= 0 || sourceHeight <= 0 || destW <= 0 || destHeight <= 0) continue;
+      if (col < 2) destW += STRIP_OVERLAP;
+      if (col > 0) destX -= STRIP_OVERLAP;
       ctx.drawImage(
         img,
         sx[col],
         sourceY,
         sourceW,
         sourceHeight,
-        dx[col],
+        destX,
         destY,
         destW,
         destHeight
@@ -722,15 +733,18 @@ function drawFaceMappedMask(
     const lowerBands = 12;
     const sourceLowerHeight = imgH - artEyeMid.y;
     const destLowerHeight = lowerY2 - y1;
+    const bandOverlap = 0.5;
     for (let band = 0; band < lowerBands; band += 1) {
       const start = band / lowerBands;
       const end = (band + 1) / lowerBands;
       const progress = lowerFaceCorrectionProgress((start + end) / 2);
+      const srcOverlap = band > 0 ? bandOverlap : 0;
+      const dstOverlap = band > 0 ? bandOverlap : 0;
       drawMappedStrip(
         artEyeMid.y + sourceLowerHeight * start,
-        sourceLowerHeight * (end - start),
+        sourceLowerHeight * (end - start) + srcOverlap,
         y1 + destLowerHeight * start,
-        destLowerHeight * (end - start),
+        destLowerHeight * (end - start) + dstOverlap,
         x0 + adaptiveLeftDelta * progress,
         x3 + adaptiveRightDelta * progress
       );

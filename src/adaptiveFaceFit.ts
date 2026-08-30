@@ -2,10 +2,10 @@ import { AdaptiveFaceMetrics } from './types';
 
 // Pass 12C4 deliberately permits only subtle corrections on top of the approved Pass 7 fit.
 // The asymmetric limits favor coverage while preventing a broad or elongated caricature.
-export const ADAPTIVE_LOWER_WIDTH_MIN = 0.96;
-export const ADAPTIVE_LOWER_WIDTH_MAX = 1.12;
-export const ADAPTIVE_LOWER_HEIGHT_MIN = 0.97;
-export const ADAPTIVE_LOWER_HEIGHT_MAX = 1.07;
+export const ADAPTIVE_LOWER_WIDTH_MIN = 0.95;
+export const ADAPTIVE_LOWER_WIDTH_MAX = 1.15;
+export const ADAPTIVE_LOWER_HEIGHT_MIN = 0.96;
+export const ADAPTIVE_LOWER_HEIGHT_MAX = 1.09;
 
 const WIDTH_FACTOR_DEADZONE = 0.012;
 const HEIGHT_FACTOR_DEADZONE = 0.01;
